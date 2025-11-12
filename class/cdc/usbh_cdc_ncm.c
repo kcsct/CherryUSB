@@ -159,6 +159,12 @@ static int usbh_cdc_ncm_set_ntb_input_size(struct usbh_cdc_ncm *cdc_ncm_class, u
     }
 
     USB_LOG_ERR("SET_NTB_INPUT_SIZE failed on all interfaces\r\n");
+
+    if (ret == -USB_ERR_STALL) {
+        USB_LOG_WRN("Device stalled SET_NTB_INPUT_SIZE, keeping defaults\r\n");
+        return 0;
+    }
+
     return ret;
 
 success:
@@ -208,6 +214,12 @@ static int usbh_cdc_ncm_set_max_datagram_size(struct usbh_cdc_ncm *cdc_ncm_class
     }
 
     USB_LOG_ERR("SET_MAX_DATAGRAM_SIZE failed on all interfaces\r\n");
+
+    if (ret == -USB_ERR_STALL) {
+        USB_LOG_WRN("Device stalled SET_MAX_DATAGRAM_SIZE, keeping defaults\r\n");
+        return 0;
+    }
+
     return ret;
 }
 
