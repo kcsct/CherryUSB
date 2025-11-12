@@ -23,6 +23,16 @@
 
 #define CONFIG_USBHOST_CDC_NCM_ETH_MAX_SEGSZE 1514U
 
+#define CDC_NCM_PACKET_FILTER_DEFAULT 0x000F
+#define CDC_NCM_NTB_FORMAT_16        0x0000
+#define CDC_NCM_NTB_FORMAT_32        0x0001
+
+struct cdc_ncm_ntb_input_size_cmd {
+    uint32_t dwNtbInMaxSize;
+    uint16_t wNtbInMaxDatagrams;
+    uint16_t wReserved;
+} __PACKED;
+
 static USB_NOCACHE_RAM_SECTION USB_MEM_ALIGNX uint8_t g_cdc_ncm_rx_buffer[CONFIG_USBHOST_CDC_NCM_ETH_MAX_RX_SIZE];
 static USB_NOCACHE_RAM_SECTION USB_MEM_ALIGNX uint8_t g_cdc_ncm_tx_buffer[CONFIG_USBHOST_CDC_NCM_ETH_MAX_TX_SIZE];
 static USB_NOCACHE_RAM_SECTION USB_MEM_ALIGNX uint8_t g_cdc_ncm_inttx_buffer[USB_ALIGN_UP(16, CONFIG_USB_ALIGN_SIZE)];
@@ -73,6 +83,154 @@ static void print_ntb_parameters(struct cdc_ncm_ntb_parameters *param)
     USB_LOG_RAW("wNdbOutAlignment: 0x%02x     \r\n", param->wNdbOutAlignment);
 
     USB_LOG_RAW("wNtbOutMaxDatagrams: 0x%02x     \r\n", param->wNtbOutMaxDatagrams);
+}
+
+static int usbh_cdc_ncm_set_ntb_format(struct usbh_cdc_ncm *cdc_ncm_class, uint16_t format)
+{
+    struct usb_setup_packet *setup;
+
+    if (!cdc_ncm_class || !cdc_ncm_class->hport) {
+        return -USB_ERR_INVAL;
+    }
+
+    setup = cdc_ncm_class->hport->setup;
+    setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
+    setup->bRequest = CDC_REQUEST_SET_NTB_FORMAT;
+    setup->wValue = format;
+    setup->wIndex = cdc_ncm_class->ctrl_intf;
+    setup->wLength = 0;
+
+    return usbh_control_transfer(cdc_ncm_class->hport, setup, NULL);
+}
+
+static int usbh_cdc_ncm_set_ntb_input_size(struct usbh_cdc_ncm *cdc_ncm_class, uint32_t max_size, uint16_t max_datagrams)
+{
+    struct usb_setup_packet *setup;
+    struct cdc_ncm_ntb_input_size_cmd *cmd;
+
+    if (!cdc_ncm_class || !cdc_ncm_class->hport) {
+        return -USB_ERR_INVAL;
+    }
+
+    setup = cdc_ncm_class->hport->setup;
+    cmd = (struct cdc_ncm_ntb_input_size_cmd *)g_cdc_ncm_buf;
+
+    cmd->dwNtbInMaxSize = max_size;
+    cmd->wNtbInMaxDatagrams = max_datagrams;
+    cmd->wReserved = 0;
+
+    setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
+    setup->bRequest = CDC_REQUEST_SET_NTB_INPUT_SIZE;
+    setup->wValue = 0;
+    setup->wIndex = cdc_ncm_class->ctrl_intf;
+    setup->wLength = sizeof(struct cdc_ncm_ntb_input_size_cmd);
+
+    return usbh_control_transfer(cdc_ncm_class->hport, setup, (uint8_t *)cmd);
+}
+
+static int usbh_cdc_ncm_set_max_datagram_size(struct usbh_cdc_ncm *cdc_ncm_class, uint16_t max_datagram)
+{
+    struct usb_setup_packet *setup;
+
+    if (!cdc_ncm_class || !cdc_ncm_class->hport) {
+        return -USB_ERR_INVAL;
+    }
+
+    setup = cdc_ncm_class->hport->setup;
+
+    g_cdc_ncm_buf[0] = (uint8_t)(max_datagram & 0xff);
+    g_cdc_ncm_buf[1] = (uint8_t)(max_datagram >> 8);
+
+    setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
+    setup->bRequest = CDC_REQUEST_SET_MAX_DATAGRAM_SIZE;
+    setup->wValue = 0;
+    setup->wIndex = cdc_ncm_class->ctrl_intf;
+    setup->wLength = 2;
+
+    return usbh_control_transfer(cdc_ncm_class->hport, setup, g_cdc_ncm_buf);
+}
+
+static int usbh_cdc_ncm_set_packet_filter(struct usbh_cdc_ncm *cdc_ncm_class, uint16_t filter)
+{
+    struct usb_setup_packet *setup;
+
+    if (!cdc_ncm_class || !cdc_ncm_class->hport) {
+        return -USB_ERR_INVAL;
+    }
+
+    setup = cdc_ncm_class->hport->setup;
+    setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
+    setup->bRequest = CDC_REQUEST_SET_ETHERNET_PACKET_FILTER;
+    setup->wValue = filter;
+    setup->wIndex = cdc_ncm_class->ctrl_intf;
+    setup->wLength = 0;
+
+    return usbh_control_transfer(cdc_ncm_class->hport, setup, NULL);
+}
+
+static int usbh_cdc_ncm_configure(struct usbh_cdc_ncm *cdc_ncm_class)
+{
+    int ret;
+    uint16_t format;
+    uint32_t host_ntb_in_size;
+    uint16_t host_max_datagram;
+    uint16_t host_ntb_in_datagrams;
+
+    if (cdc_ncm_class->ntb_param.bmNtbFormatsSupported & 0x01) {
+        format = CDC_NCM_NTB_FORMAT_16;
+    } else {
+        format = CDC_NCM_NTB_FORMAT_32;
+    }
+
+    ret = usbh_cdc_ncm_set_ntb_format(cdc_ncm_class, format);
+    if (ret < 0) {
+        USB_LOG_ERR("Failed to set NTB format, ret:%d\r\n", ret);
+        return ret;
+    }
+
+    host_ntb_in_size = cdc_ncm_class->ntb_param.dwNtbInMaxSize;
+    if (host_ntb_in_size == 0 || host_ntb_in_size > CONFIG_USBHOST_CDC_NCM_ETH_MAX_RX_SIZE) {
+        host_ntb_in_size = CONFIG_USBHOST_CDC_NCM_ETH_MAX_RX_SIZE;
+    }
+
+    host_ntb_in_datagrams = cdc_ncm_class->ntb_param.wNtbOutMaxDatagrams;
+    if (host_ntb_in_datagrams == 0) {
+        host_ntb_in_datagrams = 1;
+    }
+
+    ret = usbh_cdc_ncm_set_ntb_input_size(cdc_ncm_class, host_ntb_in_size, host_ntb_in_datagrams);
+    if (ret < 0) {
+        USB_LOG_ERR("Failed to set NTB input size, ret:%d\r\n", ret);
+        return ret;
+    }
+
+    host_max_datagram = cdc_ncm_class->max_segment_size;
+    if (host_max_datagram == 0 || host_max_datagram > CONFIG_USBHOST_CDC_NCM_ETH_MAX_SEGSZE) {
+        host_max_datagram = CONFIG_USBHOST_CDC_NCM_ETH_MAX_SEGSZE;
+    }
+
+    ret = usbh_cdc_ncm_set_max_datagram_size(cdc_ncm_class, host_max_datagram);
+    if (ret < 0) {
+        USB_LOG_ERR("Failed to set max datagram size, ret:%d\r\n", ret);
+        return ret;
+    }
+
+    ret = usbh_cdc_ncm_set_packet_filter(cdc_ncm_class, CDC_NCM_PACKET_FILTER_DEFAULT);
+    if (ret < 0) {
+        USB_LOG_ERR("Failed to set packet filter, ret:%d\r\n", ret);
+        return ret;
+    }
+
+    cdc_ncm_class->ntb_param.dwNtbInMaxSize = host_ntb_in_size;
+    cdc_ncm_class->max_segment_size = host_max_datagram;
+
+    USB_LOG_INFO("CDC NCM configured: NTB format %s, NTB input %u bytes, max datagram %u, datagrams %u\r\n",
+                 (format == CDC_NCM_NTB_FORMAT_16) ? "16" : "32",
+                 (unsigned int)host_ntb_in_size,
+                 (unsigned int)host_max_datagram,
+                 (unsigned int)host_ntb_in_datagrams);
+
+    return 0;
 }
 
 int usbh_cdc_ncm_get_connect_status(struct usbh_cdc_ncm *cdc_ncm_class)
@@ -211,12 +369,17 @@ get_mac:
         }
     }
 
+    ret = usbh_cdc_ncm_configure(cdc_ncm_class);
+    if (ret < 0) {
+        return ret;
+    }
+
     strncpy(hport->config.intf[intf].devname, DEV_FORMAT, CONFIG_USBHOST_DEV_NAMELEN);
 
     USB_LOG_INFO("Register CDC NCM Class:%s\r\n", hport->config.intf[intf].devname);
 
     usbh_cdc_ncm_run(cdc_ncm_class);
-    return ret;
+    return 0;
 }
 
 static int usbh_cdc_ncm_disconnect(struct usbh_hubport *hport, uint8_t intf)

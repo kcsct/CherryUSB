@@ -279,6 +279,7 @@ void usbh_cdc_ncm_run(struct usbh_cdc_ncm *cdc_ncm_class)
 
     esp_netif_action_start(esp_netif, NULL, 0, NULL);
     esp_netif_action_connected(esp_netif, NULL, 0, NULL);
+    esp_netif_dhcpc_start(esp_netif);
 
     usb_osal_thread_create("usbh_cdc_ncm_rx", 2048, CONFIG_USBHOST_PSC_PRIO + 1, usbh_cdc_ncm_rx_thread, NULL);
 }
