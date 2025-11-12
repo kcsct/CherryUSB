@@ -192,6 +192,9 @@
 #define CONFIG_USBHOST_MSC_TIMEOUT 5000
 #endif
 
+/* Match Linux CDC-ACM style RNDIS gadgets (class 0x02 / subclass 0x02 / protocol 0xFF) */
+/* #define CONFIG_USBHOST_RNDIS_LINUX_GADGET */
+
 /* This parameter affects usb performance, and depends on (TCP_WND)tcp eceive windows size,
  * you can change to 2K ~ 16K and must be larger than TCP RX windows size in order to avoid being overflow.
  */
