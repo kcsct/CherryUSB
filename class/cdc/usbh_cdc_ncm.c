@@ -560,26 +560,9 @@ find_class:
         usbh_bulk_urb_fill(&g_cdc_ncm_class.bulkin_urb, g_cdc_ncm_class.hport, g_cdc_ncm_class.bulkin, &g_cdc_ncm_rx_buffer[g_cdc_ncm_rx_length], transfer_size, USB_OSAL_WAITING_FOREVER, NULL, NULL);
         ret = usbh_submit_urb(&g_cdc_ncm_class.bulkin_urb);
         if (ret < 0) {
-            if (ret == -USB_ERR_IO) {
-                USB_LOG_DBG("bulk IN returned IO error, retrying\r\n");
+            if (ret == -USB_ERR_IO || ret == -USB_ERR_STALL || ret == -USB_ERR_BABBLE) {
+                USB_LOG_DBG("bulk IN stalled/empty (ret=%d), retrying\r\n", ret);
                 usb_osal_msleep(20);
-                g_cdc_ncm_rx_length = 0;
-                continue;
-            }
-            if (ret == -USB_ERR_STALL || ret == -USB_ERR_BABBLE) {
-                USB_LOG_WRN("bulk IN stalled, clearing halt\r\n");
-                int clear_attempts = 0;
-                while (clear_attempts < 5) {
-                    if (usbh_cdc_ncm_clear_halt(&g_cdc_ncm_class, g_cdc_ncm_class.bulkin) >= 0) {
-                        break;
-                    }
-                    clear_attempts++;
-                    usb_osal_msleep(10);
-                }
-                if (clear_attempts >= 5) {
-                    USB_LOG_ERR("Failed to clear bulk IN halt\r\n");
-                    goto find_class;
-                }
                 g_cdc_ncm_rx_length = 0;
                 continue;
             }
