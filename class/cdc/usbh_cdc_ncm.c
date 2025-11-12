@@ -404,7 +404,9 @@ find_class:
             }
 
             struct cdc_ncm_ndp16 *ndp16 = (struct cdc_ncm_ndp16 *)&g_cdc_ncm_rx_buffer[nth16->wNdpIndex];
-            if ((ndp16->dwSignature != CDC_NCM_NDP16_SIGNATURE_NCM0) && (ndp16->dwSignature != CDC_NCM_NDP16_SIGNATURE_NCM1)) {
+            if ((ndp16->dwSignature != CDC_NCM_NDP16_SIGNATURE) &&
+                (ndp16->dwSignature != CDC_NCM_NDP16_SIGNATURE_NCM0) &&
+                (ndp16->dwSignature != CDC_NCM_NDP16_SIGNATURE_NCM1)) {
                 USB_LOG_ERR("invalid rx ndp16\r\n");
                 g_cdc_ncm_rx_length = 0;
                 continue;
@@ -454,27 +456,39 @@ int usbh_cdc_ncm_eth_output(uint32_t buflen)
         return -USB_ERR_NOTCONN;
     }
 
+    const uint16_t data_offset = 16;
+    const uint16_t data_aligned = USB_ALIGN_UP(buflen, 4);
+    const uint16_t first_ndp_offset = data_offset + data_aligned;
+    const uint16_t second_ndp_offset = first_ndp_offset + 16;
+    const uint16_t block_length = second_ndp_offset + 16;
+
     struct cdc_ncm_nth16 *nth16 = (struct cdc_ncm_nth16 *)&g_cdc_ncm_tx_buffer[0];
 
     nth16->dwSignature = CDC_NCM_NTH16_SIGNATURE;
     nth16->wHeaderLength = 12;
     nth16->wSequence = g_cdc_ncm_class.bulkout_sequence++;
-    nth16->wBlockLength = 16 + 16 + USB_ALIGN_UP(buflen, 4);
-    nth16->wNdpIndex = 16 + USB_ALIGN_UP(buflen, 4);
+    nth16->wBlockLength = block_length;
+    nth16->wNdpIndex = first_ndp_offset;
 
-    struct cdc_ncm_ndp16 *ndp16 = (struct cdc_ncm_ndp16 *)&g_cdc_ncm_tx_buffer[nth16->wNdpIndex];
+    if (data_aligned > buflen) {
+        memset(&g_cdc_ncm_tx_buffer[data_offset + buflen], 0, data_aligned - buflen);
+    }
+    memset(&g_cdc_ncm_tx_buffer[first_ndp_offset], 0, 32);
 
-    ndp16->dwSignature = CDC_NCM_NDP16_SIGNATURE_NCM0;
-    ndp16->wLength = 16;
-    ndp16->wNextNdpIndex = 0;
-
-    ndp16_datagram = (struct cdc_ncm_ndp16_datagram *)&g_cdc_ncm_tx_buffer[nth16->wNdpIndex + 8 + 4 * 0];
-    ndp16_datagram->wDatagramIndex = 16;
+    struct cdc_ncm_ndp16 *ndp_std = (struct cdc_ncm_ndp16 *)&g_cdc_ncm_tx_buffer[first_ndp_offset];
+    ndp_std->dwSignature = CDC_NCM_NDP16_SIGNATURE;
+    ndp_std->wLength = 16;
+    ndp_std->wNextNdpIndex = second_ndp_offset;
+    ndp16_datagram = (struct cdc_ncm_ndp16_datagram *)&g_cdc_ncm_tx_buffer[first_ndp_offset + 8];
+    ndp16_datagram->wDatagramIndex = data_offset;
     ndp16_datagram->wDatagramLength = buflen;
 
-    ndp16_datagram = (struct cdc_ncm_ndp16_datagram *)&g_cdc_ncm_tx_buffer[nth16->wNdpIndex + 8 + 4 * 1];
-    ndp16_datagram->wDatagramIndex = 0;
-    ndp16_datagram->wDatagramLength = 0;
+    struct cdc_ncm_ndp16 *ndp_alt = (struct cdc_ncm_ndp16 *)&g_cdc_ncm_tx_buffer[second_ndp_offset];
+    ndp_alt->dwSignature = CDC_NCM_NDP16_SIGNATURE_NCM0;
+    ndp_alt->wLength = 16;
+    ndp_alt->wNextNdpIndex = 0;
+    ndp16_datagram = (struct cdc_ncm_ndp16_datagram *)&g_cdc_ncm_tx_buffer[second_ndp_offset + 8];
+    ndp16_datagram->wDatagramIndex = data_offset;
 
     USB_LOG_DBG("txlen:%d\r\n", nth16->wBlockLength);
 
