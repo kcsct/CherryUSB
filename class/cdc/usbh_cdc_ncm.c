@@ -506,8 +506,10 @@ int usbh_cdc_ncm_eth_output(uint32_t buflen)
     ndp_alt->wNextNdpIndex = 0;
     ndp16_datagram = (struct cdc_ncm_ndp16_datagram *)&g_cdc_ncm_tx_buffer[second_ndp_offset + 8];
     ndp16_datagram->wDatagramIndex = data_offset;
+    ndp16_datagram->wDatagramLength = buflen;
 
     USB_LOG_DBG("txlen:%d\r\n", nth16->wBlockLength);
+    usb_hexdump(g_cdc_ncm_tx_buffer, MIN(nth16->wBlockLength, 64));
 
     usbh_bulk_urb_fill(&g_cdc_ncm_class.bulkout_urb, g_cdc_ncm_class.hport, g_cdc_ncm_class.bulkout, g_cdc_ncm_tx_buffer, nth16->wBlockLength, USB_OSAL_WAITING_FOREVER, NULL, NULL);
     int ret = usbh_submit_urb(&g_cdc_ncm_class.bulkout_urb);
