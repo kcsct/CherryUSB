@@ -304,7 +304,9 @@ static int usbh_cdc_ncm_configure(struct usbh_cdc_ncm *cdc_ncm_class)
                  (unsigned int)host_max_datagram,
                  (unsigned int)host_ntb_in_datagrams);
 
-    return 0;
+    cdc_ncm_class->connect_status = true;
+
+    return ret;
 }
 
 int usbh_cdc_ncm_get_connect_status(struct usbh_cdc_ncm *cdc_ncm_class)
