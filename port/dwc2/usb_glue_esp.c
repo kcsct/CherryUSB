@@ -235,26 +235,16 @@ void usb_hc_low_level_deinit(struct usbh_bus *bus)
 
 void dwc2_get_user_params(uint32_t reg_base, struct dwc2_user_params *params)
 {
-#if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
+    (void)reg_base;
     memcpy(params, &param_fs, sizeof(struct dwc2_user_params));
-#elif CONFIG_IDF_TARGET_ESP32P4
-    if (reg_base == ESP_USB_HS0_BASE) {
-        memcpy(params, &param_hs, sizeof(struct dwc2_user_params));
-    } else {
-        memcpy(params, &param_fs, sizeof(struct dwc2_user_params));
-    }
-#endif
-#ifdef CONFIG_USB_DWC2_CUSTOM_FIFO
-    struct usb_dwc2_user_fifo_config s_dwc2_fifo_config;
-
-    dwc2_get_user_fifo_config(reg_base, &s_dwc2_fifo_config);
-
-    params->device_rx_fifo_size = s_dwc2_fifo_config.device_rx_fifo_size;
-    for (uint8_t i = 0; i < MAX_EPS_CHANNELS; i++)
-    {
-        params->device_tx_fifo_size[i] = s_dwc2_fifo_config.device_tx_fifo_size[i];
-    }
-#endif
+    /* Tune host FIFO sizes for CDC-NCM traffic on ESP32-S3 */
+    params->host_rx_fifo_size = 128;
+    params->host_nperio_tx_fifo_size = 72;
+    params->host_perio_tx_fifo_size = 0;
+    USB_LOG_INFO("ESP32 DWC2 host fifo: rx=%u np_tx=%u p_tx=%u\r\n",
+                 (unsigned int)params->host_rx_fifo_size,
+                 (unsigned int)params->host_nperio_tx_fifo_size,
+                 (unsigned int)params->host_perio_tx_fifo_size);
 }
 
 void usbd_dwc2_delay_ms(uint8_t ms)
