@@ -543,7 +543,15 @@ find_class:
         if (ret < 0) {
             if (ret == -USB_ERR_STALL || ret == -USB_ERR_BABBLE) {
                 USB_LOG_WRN("bulk IN stalled, clearing halt\r\n");
-                if (usbh_cdc_ncm_clear_halt(&g_cdc_ncm_class, g_cdc_ncm_class.bulkin) < 0) {
+                int clear_attempts = 0;
+                while (clear_attempts < 5) {
+                    if (usbh_cdc_ncm_clear_halt(&g_cdc_ncm_class, g_cdc_ncm_class.bulkin) >= 0) {
+                        break;
+                    }
+                    clear_attempts++;
+                    usb_osal_msleep(10);
+                }
+                if (clear_attempts >= 5) {
                     USB_LOG_ERR("Failed to clear bulk IN halt\r\n");
                     goto find_class;
                 }
