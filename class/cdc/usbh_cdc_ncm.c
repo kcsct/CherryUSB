@@ -490,6 +490,8 @@ int usbh_cdc_ncm_eth_output(uint32_t buflen)
     }
     memset(&g_cdc_ncm_tx_buffer[first_ndp_offset], 0, 32);
 
+    usb_memcpy(&g_cdc_ncm_tx_buffer[data_offset], usbh_cdc_ncm_get_eth_txbuf(), buflen);
+
     struct cdc_ncm_ndp16 *ndp_std = (struct cdc_ncm_ndp16 *)&g_cdc_ncm_tx_buffer[first_ndp_offset];
     ndp_std->dwSignature = CDC_NCM_NDP16_SIGNATURE;
     ndp_std->wLength = 16;
