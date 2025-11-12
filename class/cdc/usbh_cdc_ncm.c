@@ -506,9 +506,9 @@ void usbh_cdc_ncm_rx_thread(CONFIG_USB_OSAL_THREAD_SET_ARGV)
     uint32_t g_cdc_ncm_rx_length;
     int ret;
 #if CONFIG_USBHOST_CDC_NCM_ETH_MAX_RX_SIZE <= (16 * 1024)
-    uint32_t transfer_size = CONFIG_USBHOST_CDC_NCM_ETH_MAX_RX_SIZE;
+    uint32_t transfer_size = MIN(CONFIG_USBHOST_CDC_NCM_ETH_MAX_RX_SIZE, 512);
 #else
-    uint32_t transfer_size = (16 * 1024);
+    uint32_t transfer_size = 512;
 #endif
 
     (void)CONFIG_USB_OSAL_THREAD_GET_ARGV;
