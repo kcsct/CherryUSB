@@ -11,6 +11,7 @@
 #include "esp_check.h"
 #include "esp_netif.h"
 #include "usbh_core.h"
+#include <string.h>
 
 #if TCPIP_THREAD_STACKSIZE < 1024
 #error TCPIP_THREAD_STACKSIZE must be >= 1024
@@ -275,7 +276,13 @@ void usbh_cdc_ncm_run(struct usbh_cdc_ncm *cdc_ncm_class)
     usbh_net_netif_glue_init_common(&g_cdc_ncm_netif_glue, cdc_ncm_class, usbh_cdc_ncm_transmit);
     esp_netif_attach(esp_netif, &g_cdc_ncm_netif_glue.base);
 
-    esp_netif_set_mac(esp_netif, cdc_ncm_class->mac);
+    uint8_t host_mac[6];
+    memcpy(host_mac, cdc_ncm_class->mac, sizeof(host_mac));
+    host_mac[0] |= 0x02; /* locally administered */
+    if (host_mac[0] & 0x01) {
+        host_mac[0] &= ~0x01; /* clear multicast bit */
+    }
+    esp_netif_set_mac(esp_netif, host_mac);
 
     esp_netif_action_start(esp_netif, NULL, 0, NULL);
     esp_netif_action_connected(esp_netif, NULL, 0, NULL);

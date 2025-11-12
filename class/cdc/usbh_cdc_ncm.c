@@ -5,6 +5,10 @@
  */
 #include "usbh_core.h"
 #include "usbh_cdc_ncm.h"
+#include "lwip/netif.h"
+#include "lwip/pbuf.h"
+#include "lwip/etharp.h"
+#include "lwip/prot/ethernet.h"
 
 #undef USB_DBG_TAG
 #define USB_DBG_TAG "usbh_cdc_ncm"
@@ -40,6 +44,7 @@ static USB_NOCACHE_RAM_SECTION USB_MEM_ALIGNX uint8_t g_cdc_ncm_inttx_buffer[USB
 static USB_NOCACHE_RAM_SECTION USB_MEM_ALIGNX uint8_t g_cdc_ncm_buf[USB_ALIGN_UP(32, CONFIG_USB_ALIGN_SIZE)];
 
 static struct usbh_cdc_ncm g_cdc_ncm_class;
+struct netif *ncm_netif = NULL;
 
 static int usbh_cdc_ncm_get_ntb_parameters(struct usbh_cdc_ncm *cdc_ncm_class, struct cdc_ncm_ntb_parameters *param)
 {
