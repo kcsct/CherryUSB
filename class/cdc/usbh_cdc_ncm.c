@@ -107,7 +107,9 @@ static int usbh_cdc_ncm_set_ntb_input_size(struct usbh_cdc_ncm *cdc_ncm_class, u
 {
     struct usb_setup_packet *setup;
     struct cdc_ncm_ntb_input_size_cmd *cmd;
-    int ret;
+    uint16_t iface_candidates[2];
+    uint16_t requested_datagrams = max_datagrams;
+    int ret = -USB_ERR_INVAL;
 
     if (!cdc_ncm_class || !cdc_ncm_class->hport) {
         return -USB_ERR_INVAL;
@@ -117,31 +119,52 @@ static int usbh_cdc_ncm_set_ntb_input_size(struct usbh_cdc_ncm *cdc_ncm_class, u
     cmd = (struct cdc_ncm_ntb_input_size_cmd *)g_cdc_ncm_buf;
 
     cmd->dwNtbInMaxSize = max_size;
-    cmd->wNtbInMaxDatagrams = max_datagrams;
+    cmd->wNtbInMaxDatagrams = requested_datagrams;
     cmd->wReserved = 0;
 
-    USB_LOG_DBG("SET_NTB_INPUT_SIZE size=%u datagrams=%u\r\n", (unsigned int)max_size, (unsigned int)max_datagrams);
+    iface_candidates[0] = cdc_ncm_class->data_intf;
+    iface_candidates[1] = cdc_ncm_class->ctrl_intf;
+
+    USB_LOG_DBG("SET_NTB_INPUT_SIZE size=%u datagrams=%u\r\n", (unsigned int)max_size, (unsigned int)requested_datagrams);
 
     setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
     setup->bRequest = CDC_REQUEST_SET_NTB_INPUT_SIZE;
     setup->wValue = 0;
-    setup->wIndex = cdc_ncm_class->data_intf;
     setup->wLength = sizeof(struct cdc_ncm_ntb_input_size_cmd);
 
-    ret = usbh_control_transfer(cdc_ncm_class->hport, setup, (uint8_t *)cmd);
-    if (ret < 0) {
-        USB_LOG_ERR("SET_NTB_INPUT_SIZE failed, ret:%d size=%u datagrams=%u\r\n", ret, (unsigned int)max_size, (unsigned int)max_datagrams);
-        if (max_datagrams != 1) {
-            USB_LOG_WRN("Retrying SET_NTB_INPUT_SIZE with datagram count 1\r\n");
+    for (size_t i = 0; i < ARRAY_SIZE(iface_candidates); i++) {
+        setup->wIndex = iface_candidates[i];
+        if (i > 0 && iface_candidates[i] == iface_candidates[i - 1]) {
+            continue;
+        }
+
+        cmd->wNtbInMaxDatagrams = requested_datagrams;
+        ret = usbh_control_transfer(cdc_ncm_class->hport, setup, (uint8_t *)cmd);
+        if (ret == 0) {
+            goto success;
+        }
+
+        USB_LOG_WRN("SET_NTB_INPUT_SIZE failed on if=%u ret=%d\r\n", iface_candidates[i], ret);
+
+        if (requested_datagrams != 1) {
+            USB_LOG_WRN("Retrying SET_NTB_INPUT_SIZE with datagram count 1 on if=%u\r\n", iface_candidates[i]);
             cmd->wNtbInMaxDatagrams = 1;
             ret = usbh_control_transfer(cdc_ncm_class->hport, setup, (uint8_t *)cmd);
+            if (ret == 0) {
+                requested_datagrams = 1;
+                goto success;
+            }
+            USB_LOG_WRN("Fallback SET_NTB_INPUT_SIZE failed on if=%u ret=%d\r\n", iface_candidates[i], ret);
         }
-        if (ret < 0) {
-            USB_LOG_ERR("Fallback SET_NTB_INPUT_SIZE still failing, giving up\r\n");
-            return ret;
-        }
-        USB_LOG_INFO("SET_NTB_INPUT_SIZE accepted with datagrams=1\r\n");
-        cdc_ncm_class->ntb_param.wNtbOutMaxDatagrams = 1;
+    }
+
+    USB_LOG_ERR("SET_NTB_INPUT_SIZE failed on all interfaces\r\n");
+    return ret;
+
+success:
+    if (requested_datagrams != max_datagrams) {
+        USB_LOG_INFO("SET_NTB_INPUT_SIZE accepted with datagrams=%u\r\n", requested_datagrams);
+        cdc_ncm_class->ntb_param.wNtbOutMaxDatagrams = requested_datagrams;
     }
 
     return ret;
@@ -150,6 +173,8 @@ static int usbh_cdc_ncm_set_ntb_input_size(struct usbh_cdc_ncm *cdc_ncm_class, u
 static int usbh_cdc_ncm_set_max_datagram_size(struct usbh_cdc_ncm *cdc_ncm_class, uint16_t max_datagram)
 {
     struct usb_setup_packet *setup;
+    uint16_t iface_candidates[2];
+    int ret = -USB_ERR_INVAL;
 
     if (!cdc_ncm_class || !cdc_ncm_class->hport) {
         return -USB_ERR_INVAL;
@@ -165,10 +190,25 @@ static int usbh_cdc_ncm_set_max_datagram_size(struct usbh_cdc_ncm *cdc_ncm_class
     setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
     setup->bRequest = CDC_REQUEST_SET_MAX_DATAGRAM_SIZE;
     setup->wValue = 0;
-    setup->wIndex = cdc_ncm_class->data_intf;
     setup->wLength = 2;
 
-    return usbh_control_transfer(cdc_ncm_class->hport, setup, g_cdc_ncm_buf);
+    iface_candidates[0] = cdc_ncm_class->data_intf;
+    iface_candidates[1] = cdc_ncm_class->ctrl_intf;
+
+    for (size_t i = 0; i < ARRAY_SIZE(iface_candidates); i++) {
+        setup->wIndex = iface_candidates[i];
+        if (i > 0 && iface_candidates[i] == iface_candidates[i - 1]) {
+            continue;
+        }
+        ret = usbh_control_transfer(cdc_ncm_class->hport, setup, g_cdc_ncm_buf);
+        if (ret == 0) {
+            return ret;
+        }
+        USB_LOG_WRN("SET_MAX_DATAGRAM_SIZE failed on if=%u ret=%d\r\n", iface_candidates[i], ret);
+    }
+
+    USB_LOG_ERR("SET_MAX_DATAGRAM_SIZE failed on all interfaces\r\n");
+    return ret;
 }
 
 static int usbh_cdc_ncm_set_packet_filter(struct usbh_cdc_ncm *cdc_ncm_class, uint16_t filter)
