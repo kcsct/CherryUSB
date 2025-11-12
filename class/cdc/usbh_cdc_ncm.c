@@ -205,7 +205,7 @@ static int usbh_cdc_ncm_set_ntb_input_size(struct usbh_cdc_ncm *cdc_ncm_class, u
     setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
     setup->bRequest = CDC_REQUEST_SET_NTB_INPUT_SIZE;
     setup->wValue = 0;
-    setup->wIndex = cdc_ncm_class->data_intf;
+    setup->wIndex = cdc_ncm_class->ctrl_intf;
     setup->wLength = sizeof(cmd);
 
     USB_LOG_DBG("SET_NTB_INPUT_SIZE size=%u datagrams=%u\r\n", (unsigned int)max_size, (unsigned int)max_datagrams);
@@ -228,7 +228,7 @@ static int usbh_cdc_ncm_set_max_datagram_size(struct usbh_cdc_ncm *cdc_ncm_class
     setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
     setup->bRequest = CDC_REQUEST_SET_MAX_DATAGRAM_SIZE;
     setup->wValue = 0;
-    setup->wIndex = cdc_ncm_class->data_intf;
+    setup->wIndex = cdc_ncm_class->ctrl_intf;
     setup->wLength = sizeof(cmd);
 
     USB_LOG_DBG("SET_MAX_DATAGRAM_SIZE %u\r\n", (unsigned int)size);
@@ -302,7 +302,11 @@ static int usbh_cdc_ncm_configure(struct usbh_cdc_ncm *cdc_ncm_class)
 
     ret = usbh_cdc_ncm_set_packet_filter(cdc_ncm_class, CDC_NCM_PACKET_FILTER_DEFAULT);
     if (ret < 0) {
-        USB_LOG_WRN("Failed to set packet filter, ret:%d\r\n", ret);
+        usb_osal_msleep(10);
+        ret = usbh_cdc_ncm_set_packet_filter(cdc_ncm_class, CDC_NCM_PACKET_FILTER_DEFAULT);
+        if (ret < 0) {
+            USB_LOG_WRN("Failed to set packet filter, ret:%d\r\n", ret);
+        }
     }
 
     cdc_ncm_class->ntb_param.dwNtbInMaxSize = host_ntb_in_size;
