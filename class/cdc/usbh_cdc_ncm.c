@@ -301,11 +301,16 @@ static int usbh_cdc_ncm_configure(struct usbh_cdc_ncm *cdc_ncm_class)
     }
 
     ret = usbh_cdc_ncm_set_packet_filter(cdc_ncm_class, CDC_NCM_PACKET_FILTER_DEFAULT);
-    if (ret < 0) {
+    for (int i = 0; ret < 0 && i < 1; i++) {
         usb_osal_msleep(10);
         ret = usbh_cdc_ncm_set_packet_filter(cdc_ncm_class, CDC_NCM_PACKET_FILTER_DEFAULT);
-        if (ret < 0) {
-            USB_LOG_WRN("Failed to set packet filter, ret:%d\r\n", ret);
+    }
+    if (ret < 0) {
+        USB_LOG_WRN("Failed to set packet filter, ret:%d\r\n", ret);
+    } else {
+        for (int i = 0; i < 2; i++) {
+            usb_osal_msleep(10);
+            usbh_cdc_ncm_set_packet_filter(cdc_ncm_class, CDC_NCM_PACKET_FILTER_DEFAULT);
         }
     }
 
@@ -444,7 +449,21 @@ get_mac:
         }
 
         USB_LOG_INFO("Select cdc ncm altsetting: %d\r\n", altsetting);
-        usbh_set_interface(cdc_ncm_class->hport, cdc_ncm_class->data_intf, altsetting);
+        ret = usbh_set_interface(cdc_ncm_class->hport, cdc_ncm_class->data_intf, altsetting);
+        if (ret < 0) {
+            USB_LOG_WRN("Failed to set altsetting %u, ret=%d\r\n", (unsigned int)altsetting, ret);
+        } else if (altsetting > 0) {
+            USB_LOG_INFO("Toggle cdc ncm altsetting 0 -> %u\r\n", (unsigned int)altsetting);
+            ret = usbh_set_interface(cdc_ncm_class->hport, cdc_ncm_class->data_intf, 0);
+            if (ret < 0) {
+                USB_LOG_WRN("Failed to set altsetting 0, ret=%d\r\n", ret);
+            }
+            usb_osal_msleep(10);
+            ret = usbh_set_interface(cdc_ncm_class->hport, cdc_ncm_class->data_intf, altsetting);
+            if (ret < 0) {
+                USB_LOG_WRN("Failed to restore altsetting %u, ret=%d\r\n", (unsigned int)altsetting, ret);
+            }
+        }
     } else {
         for (uint8_t i = 0; i < hport->config.intf[intf + 1].altsetting[0].intf_desc.bNumEndpoints; i++) {
             ep_desc = &hport->config.intf[intf + 1].altsetting[0].ep[i].ep_desc;
