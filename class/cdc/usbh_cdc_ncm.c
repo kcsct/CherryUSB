@@ -71,7 +71,7 @@ static int usbh_cdc_ncm_get_ntb_parameters(struct usbh_cdc_ncm *cdc_ncm_class, s
     return 0;
 }
 
-static void print_ntb_parameters(struct cdc_ncm_ntb_parameters *param)
+static void print_ntb_parameters(const struct cdc_ncm_ntb_parameters *param)
 {
     USB_LOG_RAW("CDC NCM ntb parameters:\r\n");
     USB_LOG_RAW("wLength: 0x%02x             \r\n", param->wLength);
@@ -140,6 +140,25 @@ static int usbh_cdc_ncm_set_packet_filter(struct usbh_cdc_ncm *cdc_ncm_class, ui
 
     USB_LOG_DBG("SET_ETHERNET_PACKET_FILTER 0x%04x\r\n", filter);
 
+    return usbh_control_transfer(cdc_ncm_class->hport, setup, NULL);
+}
+
+static int usbh_cdc_ncm_clear_halt(struct usbh_cdc_ncm *cdc_ncm_class, struct usb_endpoint_descriptor *ep)
+{
+    struct usb_setup_packet *setup;
+
+    if (!cdc_ncm_class || !cdc_ncm_class->hport || !ep) {
+        return -USB_ERR_INVAL;
+    }
+
+    setup = cdc_ncm_class->hport->setup;
+    setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_STANDARD | USB_REQUEST_RECIPIENT_ENDPOINT;
+    setup->bRequest = USB_REQUEST_CLEAR_FEATURE;
+    setup->wValue = USB_FEATURE_ENDPOINT_HALT;
+    setup->wIndex = ep->bEndpointAddress;
+    setup->wLength = 0;
+
+    USB_LOG_WRN("Clearing halt on ep 0x%02x\r\n", ep->bEndpointAddress);
     return usbh_control_transfer(cdc_ncm_class->hport, setup, NULL);
 }
 
@@ -401,6 +420,15 @@ find_class:
         usbh_bulk_urb_fill(&g_cdc_ncm_class.bulkin_urb, g_cdc_ncm_class.hport, g_cdc_ncm_class.bulkin, &g_cdc_ncm_rx_buffer[g_cdc_ncm_rx_length], transfer_size, USB_OSAL_WAITING_FOREVER, NULL, NULL);
         ret = usbh_submit_urb(&g_cdc_ncm_class.bulkin_urb);
         if (ret < 0) {
+            if (ret == -USB_ERR_PIPE) {
+                USB_LOG_WRN("bulk IN stalled, clearing halt\r\n");
+                if (usbh_cdc_ncm_clear_halt(&g_cdc_ncm_class, g_cdc_ncm_class.bulkin) < 0) {
+                    USB_LOG_ERR("Failed to clear bulk IN halt\r\n");
+                    goto find_class;
+                }
+                g_cdc_ncm_rx_length = 0;
+                continue;
+            }
             USB_LOG_WRN("bulk IN submit failed ret=%d, restarting\r\n", ret);
             goto find_class;
         }
