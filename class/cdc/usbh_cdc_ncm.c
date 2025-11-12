@@ -27,9 +27,11 @@
 
 #define CONFIG_USBHOST_CDC_NCM_ETH_MAX_SEGSZE 1514U
 
-#define CDC_NCM_PACKET_FILTER_DEFAULT 0x0007
+#define CDC_NCM_PACKET_FILTER_DEFAULT 0x000E
 #define CDC_NCM_NTB_FORMAT_16        0x0000
 #define CDC_NCM_NTB_FORMAT_32        0x0001
+#define CDC_NCM_CRC_MODE_CRC16       0x0000
+#define CDC_NCM_CRC_MODE_NO_CRC      0x0001
 
 struct cdc_ncm_ntb_input_size_cmd {
     uint32_t dwNtbInMaxSize;
@@ -143,6 +145,44 @@ static int usbh_cdc_ncm_set_packet_filter(struct usbh_cdc_ncm *cdc_ncm_class, ui
     return usbh_control_transfer(cdc_ncm_class->hport, setup, NULL);
 }
 
+static int usbh_cdc_ncm_set_ntb_format(struct usbh_cdc_ncm *cdc_ncm_class, uint16_t format)
+{
+    struct usb_setup_packet *setup;
+
+    if (!cdc_ncm_class || !cdc_ncm_class->hport) {
+        return -USB_ERR_INVAL;
+    }
+
+    setup = cdc_ncm_class->hport->setup;
+    setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
+    setup->bRequest = CDC_REQUEST_SET_NTB_FORMAT;
+    setup->wValue = format;
+    setup->wIndex = cdc_ncm_class->ctrl_intf;
+    setup->wLength = 0;
+
+    USB_LOG_DBG("SET_NTB_FORMAT 0x%04x\r\n", format);
+    return usbh_control_transfer(cdc_ncm_class->hport, setup, NULL);
+}
+
+static int usbh_cdc_ncm_set_crc_mode(struct usbh_cdc_ncm *cdc_ncm_class, uint16_t mode)
+{
+    struct usb_setup_packet *setup;
+
+    if (!cdc_ncm_class || !cdc_ncm_class->hport) {
+        return -USB_ERR_INVAL;
+    }
+
+    setup = cdc_ncm_class->hport->setup;
+    setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
+    setup->bRequest = CDC_REQUEST_SET_CRC_MODE;
+    setup->wValue = mode;
+    setup->wIndex = cdc_ncm_class->ctrl_intf;
+    setup->wLength = 0;
+
+    USB_LOG_DBG("SET_CRC_MODE 0x%04x\r\n", mode);
+    return usbh_control_transfer(cdc_ncm_class->hport, setup, NULL);
+}
+
 static int usbh_cdc_ncm_clear_halt(struct usbh_cdc_ncm *cdc_ncm_class, struct usb_endpoint_descriptor *ep)
 {
     struct usb_setup_packet *setup;
@@ -181,6 +221,16 @@ static int usbh_cdc_ncm_configure(struct usbh_cdc_ncm *cdc_ncm_class)
     ret = usbh_cdc_ncm_set_control_line_state(cdc_ncm_class, true);
     if (ret < 0) {
         USB_LOG_WRN("Failed to assert control line state, ret:%d\r\n", ret);
+    }
+
+    ret = usbh_cdc_ncm_set_crc_mode(cdc_ncm_class, CDC_NCM_CRC_MODE_CRC16);
+    if (ret < 0 && ret != -USB_ERR_STALL) {
+        USB_LOG_WRN("Failed to set CRC mode, ret:%d\r\n", ret);
+    }
+
+    ret = usbh_cdc_ncm_set_ntb_format(cdc_ncm_class, CDC_NCM_NTB_FORMAT_16);
+    if (ret < 0 && ret != -USB_ERR_STALL) {
+        USB_LOG_WRN("Failed to set NTB format, ret:%d\r\n", ret);
     }
 
     ret = usbh_cdc_ncm_set_packet_filter(cdc_ncm_class, CDC_NCM_PACKET_FILTER_DEFAULT);
