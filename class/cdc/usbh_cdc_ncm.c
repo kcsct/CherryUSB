@@ -93,19 +93,34 @@ static void print_ntb_parameters(struct cdc_ncm_ntb_parameters *param)
 static int usbh_cdc_ncm_set_control_line_state(struct usbh_cdc_ncm *cdc_ncm_class, bool asserted)
 {
     struct usb_setup_packet *setup;
-
     if (!cdc_ncm_class || !cdc_ncm_class->hport) {
         return -USB_ERR_INVAL;
     }
 
+    uint16_t iface_candidates[2] = { cdc_ncm_class->ctrl_intf, cdc_ncm_class->data_intf };
     setup = cdc_ncm_class->hport->setup;
     setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
     setup->bRequest = CDC_REQUEST_SET_CONTROL_LINE_STATE;
     setup->wValue = asserted ? 0x0003 : 0x0000; /* DTR | RTS */
-    setup->wIndex = cdc_ncm_class->ctrl_intf;
     setup->wLength = 0;
 
-    return usbh_control_transfer(cdc_ncm_class->hport, setup, NULL);
+    for (size_t i = 0; i < ARRAY_SIZE(iface_candidates); i++) {
+        if (i > 0 && iface_candidates[i] == iface_candidates[i - 1]) {
+            continue;
+        }
+        setup->wIndex = iface_candidates[i];
+        int ret = usbh_control_transfer(cdc_ncm_class->hport, setup, NULL);
+        if (ret >= 0) {
+            USB_LOG_DBG("SET_CONTROL_LINE_STATE ok on if=%u\r\n", iface_candidates[i]);
+            return ret;
+        }
+        USB_LOG_WRN("SET_CONTROL_LINE_STATE failed on if=%u ret=%d\r\n", iface_candidates[i], ret);
+        if (ret != -USB_ERR_STALL) {
+            return ret;
+        }
+    }
+
+    return -USB_ERR_STALL;
 }
 
 static int usbh_cdc_ncm_set_packet_filter(struct usbh_cdc_ncm *cdc_ncm_class, uint16_t filter)
@@ -493,7 +508,9 @@ int usbh_cdc_ncm_eth_output(uint32_t buflen)
     USB_LOG_DBG("txlen:%d\r\n", nth16->wBlockLength);
 
     usbh_bulk_urb_fill(&g_cdc_ncm_class.bulkout_urb, g_cdc_ncm_class.hport, g_cdc_ncm_class.bulkout, g_cdc_ncm_tx_buffer, nth16->wBlockLength, USB_OSAL_WAITING_FOREVER, NULL, NULL);
-    return usbh_submit_urb(&g_cdc_ncm_class.bulkout_urb);
+    int ret = usbh_submit_urb(&g_cdc_ncm_class.bulkout_urb);
+    USB_LOG_DBG("bulk OUT submit ret=%d\r\n", ret);
+    return ret;
 }
 
 __WEAK void usbh_cdc_ncm_run(struct usbh_cdc_ncm *cdc_ncm_class)
