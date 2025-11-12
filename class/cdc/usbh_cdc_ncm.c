@@ -122,7 +122,7 @@ static int usbh_cdc_ncm_set_ntb_input_size(struct usbh_cdc_ncm *cdc_ncm_class, u
     setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
     setup->bRequest = CDC_REQUEST_SET_NTB_INPUT_SIZE;
     setup->wValue = 0;
-    setup->wIndex = cdc_ncm_class->ctrl_intf;
+    setup->wIndex = cdc_ncm_class->data_intf;
     setup->wLength = sizeof(struct cdc_ncm_ntb_input_size_cmd);
 
     return usbh_control_transfer(cdc_ncm_class->hport, setup, (uint8_t *)cmd);
