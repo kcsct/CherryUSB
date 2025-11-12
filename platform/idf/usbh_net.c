@@ -247,6 +247,7 @@ static esp_err_t usbh_cdc_ncm_transmit(void *h, void *buffer, size_t len)
     int ret;
     (void)h;
 
+    USB_LOG_INFO("CDC-NCM TX %u bytes\r\n", (unsigned int)len);
     usb_memcpy(usbh_cdc_ncm_get_eth_txbuf(), buffer, len);
     ret = usbh_cdc_ncm_eth_output(len);
     if (ret < 0) {
@@ -289,6 +290,7 @@ void usbh_cdc_ncm_run(struct usbh_cdc_ncm *cdc_ncm_class)
     esp_netif_set_mac(esp_netif, host_mac);
     USB_LOG_INFO("CDC-NCM host MAC %02x:%02x:%02x:%02x:%02x:%02x\r\n",
                  host_mac[0], host_mac[1], host_mac[2], host_mac[3], host_mac[4], host_mac[5]);
+    USB_LOG_INFO("CDC-NCM netif ptr=%p\r\n", esp_netif);
 
     esp_netif_action_start(esp_netif, NULL, 0, NULL);
     esp_netif_action_connected(esp_netif, NULL, 0, NULL);
