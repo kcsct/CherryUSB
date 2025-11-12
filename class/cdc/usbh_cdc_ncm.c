@@ -199,7 +199,7 @@ static int usbh_cdc_ncm_configure(struct usbh_cdc_ncm *cdc_ncm_class)
         host_ntb_in_size = CONFIG_USBHOST_CDC_NCM_ETH_MAX_RX_SIZE;
     }
 
-    host_ntb_in_datagrams = cdc_ncm_class->ntb_param.wNtbInMaxDatagrams;
+    host_ntb_in_datagrams = cdc_ncm_class->ntb_param.wNtbOutMaxDatagrams;
     if (host_ntb_in_datagrams == 0) {
         host_ntb_in_datagrams = 1;
     }
