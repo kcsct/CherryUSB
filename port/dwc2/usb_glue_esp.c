@@ -26,6 +26,10 @@ void dwc2_get_user_params(uint32_t reg_base, struct dwc2_user_params *params)
     params->host_nperio_tx_fifo_size = 72;
     params->host_perio_tx_fifo_size = 0;
     esp32_host_params = *params;
+    USB_LOG_INFO("ESP32 DWC2 host fifo: rx=%u np_tx=%u p_tx=%u\r\n",
+                 (unsigned int)params->host_rx_fifo_size,
+                 (unsigned int)params->host_nperio_tx_fifo_size,
+                 (unsigned int)params->host_perio_tx_fifo_size);
 }
 #endif
 
