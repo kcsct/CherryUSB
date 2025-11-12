@@ -376,17 +376,24 @@ void usbh_cdc_ncm_rx_thread(CONFIG_USB_OSAL_THREAD_SET_ARGV)
     // clang-format off
 find_class:
     // clang-format on
-    g_cdc_ncm_class.connect_status = false;
     if (usbh_find_class_instance("/dev/cdc_ncm") == NULL) {
         goto delete;
     }
 
+    uint32_t connect_poll_attempts = 0;
     while (g_cdc_ncm_class.connect_status == false) {
         ret = usbh_cdc_ncm_get_connect_status(&g_cdc_ncm_class);
         if (ret < 0) {
+            connect_poll_attempts++;
+            if (connect_poll_attempts >= 5) {
+                USB_LOG_WRN("No connect notification received, assuming link up\r\n");
+                g_cdc_ncm_class.connect_status = true;
+                break;
+            }
             usb_osal_msleep(100);
-            goto find_class;
+            continue;
         }
+        connect_poll_attempts = 0;
     }
 
     g_cdc_ncm_rx_length = 0;
@@ -394,6 +401,7 @@ find_class:
         usbh_bulk_urb_fill(&g_cdc_ncm_class.bulkin_urb, g_cdc_ncm_class.hport, g_cdc_ncm_class.bulkin, &g_cdc_ncm_rx_buffer[g_cdc_ncm_rx_length], transfer_size, USB_OSAL_WAITING_FOREVER, NULL, NULL);
         ret = usbh_submit_urb(&g_cdc_ncm_class.bulkin_urb);
         if (ret < 0) {
+            USB_LOG_WRN("bulk IN submit failed ret=%d, restarting\r\n", ret);
             goto find_class;
         }
 
