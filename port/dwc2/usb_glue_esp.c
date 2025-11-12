@@ -237,6 +237,7 @@ void dwc2_get_user_params(uint32_t reg_base, struct dwc2_user_params *params)
 {
     (void)reg_base;
     memcpy(params, &param_fs, sizeof(struct dwc2_user_params));
+#if CONFIG_CHERRYUSB_HOST_CDC_NCM
     /* Tune host FIFO sizes for CDC-NCM traffic on ESP32-S3 */
     params->host_rx_fifo_size = 128;
     params->host_nperio_tx_fifo_size = 72;
@@ -245,6 +246,7 @@ void dwc2_get_user_params(uint32_t reg_base, struct dwc2_user_params *params)
                  (unsigned int)params->host_rx_fifo_size,
                  (unsigned int)params->host_nperio_tx_fifo_size,
                  (unsigned int)params->host_perio_tx_fifo_size);
+#endif
 }
 
 void usbd_dwc2_delay_ms(uint8_t ms)
