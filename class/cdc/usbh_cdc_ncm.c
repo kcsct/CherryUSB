@@ -281,22 +281,22 @@ static int usbh_cdc_ncm_configure(struct usbh_cdc_ncm *cdc_ncm_class)
     }
 
     ret = usbh_cdc_ncm_set_ntb_input_size(cdc_ncm_class, host_ntb_in_size, host_max_datagram_count);
-    if (ret < 0 && ret != -USB_ERR_STALL && ret != -USB_ERR_PIPE) {
+    if (ret < 0 && ret != -USB_ERR_STALL && ret != -USB_ERR_IO) {
         USB_LOG_WRN("Failed to set NTB input size, ret:%d\r\n", ret);
     }
 
     ret = usbh_cdc_ncm_set_max_datagram_size(cdc_ncm_class, host_max_datagram);
-    if (ret < 0 && ret != -USB_ERR_STALL && ret != -USB_ERR_PIPE) {
+    if (ret < 0 && ret != -USB_ERR_STALL && ret != -USB_ERR_IO) {
         USB_LOG_WRN("Failed to set max datagram size, ret:%d\r\n", ret);
     }
 
     ret = usbh_cdc_ncm_set_crc_mode(cdc_ncm_class, CDC_NCM_CRC_MODE_CRC16);
-    if (ret < 0 && ret != -USB_ERR_STALL && ret != -USB_ERR_PIPE) {
+    if (ret < 0 && ret != -USB_ERR_STALL && ret != -USB_ERR_IO) {
         USB_LOG_WRN("Failed to set CRC mode, ret:%d\r\n", ret);
     }
 
     ret = usbh_cdc_ncm_set_ntb_format(cdc_ncm_class, CDC_NCM_NTB_FORMAT_16);
-    if (ret < 0 && ret != -USB_ERR_STALL && ret != -USB_ERR_PIPE) {
+    if (ret < 0 && ret != -USB_ERR_STALL && ret != -USB_ERR_IO) {
         USB_LOG_WRN("Failed to set NTB format, ret:%d\r\n", ret);
     }
 
@@ -560,7 +560,7 @@ find_class:
         usbh_bulk_urb_fill(&g_cdc_ncm_class.bulkin_urb, g_cdc_ncm_class.hport, g_cdc_ncm_class.bulkin, &g_cdc_ncm_rx_buffer[g_cdc_ncm_rx_length], transfer_size, USB_OSAL_WAITING_FOREVER, NULL, NULL);
         ret = usbh_submit_urb(&g_cdc_ncm_class.bulkin_urb);
         if (ret < 0) {
-            if (ret == -USB_ERR_STALL || ret == -USB_ERR_BABBLE || ret == -USB_ERR_PIPE) {
+            if (ret == -USB_ERR_STALL || ret == -USB_ERR_BABBLE || ret == -USB_ERR_IO) {
                 USB_LOG_WRN("bulk IN stalled, clearing halt\r\n");
                 int clear_attempts = 0;
                 while (clear_attempts < 5) {
