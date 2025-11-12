@@ -282,6 +282,9 @@ void usbh_cdc_ncm_run(struct usbh_cdc_ncm *cdc_ncm_class)
     if (host_mac[0] & 0x01) {
         host_mac[0] &= ~0x01; /* clear multicast bit */
     }
+    if (memcmp(host_mac, cdc_ncm_class->mac, sizeof(host_mac)) == 0) {
+        host_mac[5] ^= 0x01; /* tweak last byte if still identical */
+    }
     esp_netif_set_mac(esp_netif, host_mac);
     USB_LOG_INFO("CDC-NCM host MAC %02x:%02x:%02x:%02x:%02x:%02x\r\n",
                  host_mac[0], host_mac[1], host_mac[2], host_mac[3], host_mac[4], host_mac[5]);
