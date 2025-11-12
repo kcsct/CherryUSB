@@ -23,7 +23,7 @@
 
 #define CONFIG_USBHOST_CDC_NCM_ETH_MAX_SEGSZE 1514U
 
-#define CDC_NCM_PACKET_FILTER_DEFAULT 0x000F
+#define CDC_NCM_PACKET_FILTER_DEFAULT 0x0003
 #define CDC_NCM_NTB_FORMAT_16        0x0000
 #define CDC_NCM_NTB_FORMAT_32        0x0001
 
@@ -127,7 +127,17 @@ static int usbh_cdc_ncm_set_ntb_input_size(struct usbh_cdc_ncm *cdc_ncm_class, u
     setup->wIndex = cdc_ncm_class->data_intf;
     setup->wLength = sizeof(struct cdc_ncm_ntb_input_size_cmd);
 
-    return usbh_control_transfer(cdc_ncm_class->hport, setup, (uint8_t *)cmd);
+    ret = usbh_control_transfer(cdc_ncm_class->hport, setup, (uint8_t *)cmd);
+    if (ret < 0) {
+        USB_LOG_ERR("SET_NTB_INPUT_SIZE failed, ret:%d size=%u datagrams=%u\r\n", ret, (unsigned int)max_size, (unsigned int)max_datagrams);
+        if (max_datagrams != 1) {
+            USB_LOG_WARN("Retrying with datagram count 1\r\n");
+            cmd->wNtbInMaxDatagrams = 1;
+            ret = usbh_control_transfer(cdc_ncm_class->hport, setup, (uint8_t *)cmd);
+        }
+    }
+
+    return ret;
 }
 
 static int usbh_cdc_ncm_set_max_datagram_size(struct usbh_cdc_ncm *cdc_ncm_class, uint16_t max_datagram)
