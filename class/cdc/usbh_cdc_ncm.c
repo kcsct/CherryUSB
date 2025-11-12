@@ -560,6 +560,10 @@ find_class:
         usbh_bulk_urb_fill(&g_cdc_ncm_class.bulkin_urb, g_cdc_ncm_class.hport, g_cdc_ncm_class.bulkin, &g_cdc_ncm_rx_buffer[g_cdc_ncm_rx_length], transfer_size, USB_OSAL_WAITING_FOREVER, NULL, NULL);
         ret = usbh_submit_urb(&g_cdc_ncm_class.bulkin_urb);
         if (ret < 0) {
+            USB_LOG_DBG("bulk IN submit error ret=%d status=%d actual=%u\r\n",
+                        ret,
+                        g_cdc_ncm_class.bulkin_urb.status,
+                        (unsigned int)g_cdc_ncm_class.bulkin_urb.actual_length);
             if (ret == -USB_ERR_IO || ret == -USB_ERR_STALL || ret == -USB_ERR_BABBLE) {
                 USB_LOG_DBG("bulk IN stalled/empty (ret=%d), retrying\r\n", ret);
                 usb_osal_msleep(20);
