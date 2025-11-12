@@ -132,10 +132,16 @@ static int usbh_cdc_ncm_set_ntb_input_size(struct usbh_cdc_ncm *cdc_ncm_class, u
     if (ret < 0) {
         USB_LOG_ERR("SET_NTB_INPUT_SIZE failed, ret:%d size=%u datagrams=%u\r\n", ret, (unsigned int)max_size, (unsigned int)max_datagrams);
         if (max_datagrams != 1) {
-            USB_LOG_WRN("Retrying with datagram count 1\r\n");
+            USB_LOG_WRN("Retrying SET_NTB_INPUT_SIZE with datagram count 1\r\n");
             cmd->wNtbInMaxDatagrams = 1;
             ret = usbh_control_transfer(cdc_ncm_class->hport, setup, (uint8_t *)cmd);
         }
+        if (ret < 0) {
+            USB_LOG_ERR("Fallback SET_NTB_INPUT_SIZE still failing, giving up\r\n");
+            return ret;
+        }
+        USB_LOG_INFO("SET_NTB_INPUT_SIZE accepted with datagrams=1\r\n");
+        cdc_ncm_class->ntb_param.wNtbOutMaxDatagrams = 1;
     }
 
     return ret;
