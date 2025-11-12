@@ -258,6 +258,7 @@ static esp_err_t usbh_cdc_ncm_transmit(void *h, void *buffer, size_t len)
 
 void usbh_cdc_ncm_eth_input(uint8_t *buf, uint32_t buflen)
 {
+    USB_LOG_INFO("CDC-NCM RX %u bytes\r\n", (unsigned int)buflen);
     usbh_net_input_common(&g_cdc_ncm_netif_glue, buf, buflen);
 }
 
