@@ -144,12 +144,6 @@ static int usbh_cdc_ncm_configure(struct usbh_cdc_ncm *cdc_ncm_class)
         host_max_datagram = CONFIG_USBHOST_CDC_NCM_ETH_MAX_SEGSZE;
     }
 
-    ret = usbh_cdc_ncm_set_max_datagram_size(cdc_ncm_class, host_max_datagram);
-    if (ret < 0) {
-        USB_LOG_ERR("Failed to set max datagram size, ret:%d\r\n", ret);
-        return ret;
-    }
-
     ret = usbh_cdc_ncm_set_control_line_state(cdc_ncm_class, true);
     if (ret < 0) {
         USB_LOG_WRN("Failed to assert control line state, ret:%d\r\n", ret);
