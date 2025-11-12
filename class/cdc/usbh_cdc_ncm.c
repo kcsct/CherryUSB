@@ -144,7 +144,7 @@ static int usbh_cdc_ncm_set_max_datagram_size(struct usbh_cdc_ncm *cdc_ncm_class
     setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
     setup->bRequest = CDC_REQUEST_SET_MAX_DATAGRAM_SIZE;
     setup->wValue = 0;
-    setup->wIndex = cdc_ncm_class->ctrl_intf;
+    setup->wIndex = cdc_ncm_class->data_intf;
     setup->wLength = 2;
 
     return usbh_control_transfer(cdc_ncm_class->hport, setup, g_cdc_ncm_buf);
