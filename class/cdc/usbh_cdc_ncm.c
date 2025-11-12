@@ -541,7 +541,7 @@ find_class:
         if ((g_cdc_ncm_rx_length % USB_GET_MAXPACKETSIZE(g_cdc_ncm_class.bulkin->wMaxPacketSize)) ||
             (g_cdc_ncm_class.bulkin_urb.actual_length < transfer_size)) {
             USB_LOG_INFO("NCM RX block length:%d\r\n", g_cdc_ncm_rx_length);
-            USB_LOG_HEXDUMP(g_cdc_ncm_buf, MIN(g_cdc_ncm_rx_length, 64));
+            usb_hexdump(g_cdc_ncm_buf, MIN(g_cdc_ncm_rx_length, 64));
 
             struct cdc_ncm_nth16 *nth16 = (struct cdc_ncm_nth16 *)&g_cdc_ncm_rx_buffer[0];
             if ((nth16->dwSignature != CDC_NCM_NTH16_SIGNATURE) ||
