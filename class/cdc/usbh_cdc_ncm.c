@@ -420,7 +420,7 @@ find_class:
         usbh_bulk_urb_fill(&g_cdc_ncm_class.bulkin_urb, g_cdc_ncm_class.hport, g_cdc_ncm_class.bulkin, &g_cdc_ncm_rx_buffer[g_cdc_ncm_rx_length], transfer_size, USB_OSAL_WAITING_FOREVER, NULL, NULL);
         ret = usbh_submit_urb(&g_cdc_ncm_class.bulkin_urb);
         if (ret < 0) {
-            if (ret == -USB_ERR_PIPE) {
+            if (ret == -USB_ERR_STALL) {
                 USB_LOG_WRN("bulk IN stalled, clearing halt\r\n");
                 if (usbh_cdc_ncm_clear_halt(&g_cdc_ncm_class, g_cdc_ncm_class.bulkin) < 0) {
                     USB_LOG_ERR("Failed to clear bulk IN halt\r\n");
