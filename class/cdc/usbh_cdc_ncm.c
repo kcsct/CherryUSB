@@ -235,25 +235,6 @@ static int usbh_cdc_ncm_set_max_datagram_size(struct usbh_cdc_ncm *cdc_ncm_class
     return usbh_control_transfer(cdc_ncm_class->hport, setup, (uint8_t *)&cmd);
 }
 
-static int usbh_cdc_ncm_clear_halt(struct usbh_cdc_ncm *cdc_ncm_class, struct usb_endpoint_descriptor *ep)
-{
-    struct usb_setup_packet *setup;
-
-    if (!cdc_ncm_class || !cdc_ncm_class->hport || !ep) {
-        return -USB_ERR_INVAL;
-    }
-
-    setup = cdc_ncm_class->hport->setup;
-    setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_STANDARD | USB_REQUEST_RECIPIENT_ENDPOINT;
-    setup->bRequest = USB_REQUEST_CLEAR_FEATURE;
-    setup->wValue = USB_FEATURE_ENDPOINT_HALT;
-    setup->wIndex = ep->bEndpointAddress;
-    setup->wLength = 0;
-
-    USB_LOG_WRN("Clearing halt on ep 0x%02x\r\n", ep->bEndpointAddress);
-    return usbh_control_transfer(cdc_ncm_class->hport, setup, NULL);
-}
-
 static int usbh_cdc_ncm_configure(struct usbh_cdc_ncm *cdc_ncm_class)
 {
     int ret;
@@ -560,10 +541,7 @@ find_class:
         usbh_bulk_urb_fill(&g_cdc_ncm_class.bulkin_urb, g_cdc_ncm_class.hport, g_cdc_ncm_class.bulkin, &g_cdc_ncm_rx_buffer[g_cdc_ncm_rx_length], transfer_size, USB_OSAL_WAITING_FOREVER, NULL, NULL);
         ret = usbh_submit_urb(&g_cdc_ncm_class.bulkin_urb);
         if (ret < 0) {
-            USB_LOG_DBG("bulk IN submit error ret=%d status=%d actual=%u\r\n",
-                        ret,
-                        g_cdc_ncm_class.bulkin_urb.status,
-                        (unsigned int)g_cdc_ncm_class.bulkin_urb.actual_length);
+            USB_LOG_DBG("bulk IN submit error ret=%d\r\n", ret);
             if (ret == -USB_ERR_IO || ret == -USB_ERR_STALL || ret == -USB_ERR_BABBLE) {
                 USB_LOG_DBG("bulk IN stalled/empty (ret=%d), retrying\r\n", ret);
                 usb_osal_msleep(20);
