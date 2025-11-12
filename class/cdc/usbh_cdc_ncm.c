@@ -119,6 +119,8 @@ static int usbh_cdc_ncm_set_ntb_input_size(struct usbh_cdc_ncm *cdc_ncm_class, u
     cmd->wNtbInMaxDatagrams = max_datagrams;
     cmd->wReserved = 0;
 
+    USB_LOG_DBG("SET_NTB_INPUT_SIZE size=%u datagrams=%u\r\n", (unsigned int)max_size, (unsigned int)max_datagrams);
+
     setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
     setup->bRequest = CDC_REQUEST_SET_NTB_INPUT_SIZE;
     setup->wValue = 0;
@@ -140,6 +142,8 @@ static int usbh_cdc_ncm_set_max_datagram_size(struct usbh_cdc_ncm *cdc_ncm_class
 
     g_cdc_ncm_buf[0] = (uint8_t)(max_datagram & 0xff);
     g_cdc_ncm_buf[1] = (uint8_t)(max_datagram >> 8);
+
+    USB_LOG_DBG("SET_MAX_DATAGRAM_SIZE %u\r\n", max_datagram);
 
     setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
     setup->bRequest = CDC_REQUEST_SET_MAX_DATAGRAM_SIZE;
@@ -164,6 +168,8 @@ static int usbh_cdc_ncm_set_packet_filter(struct usbh_cdc_ncm *cdc_ncm_class, ui
     setup->wValue = filter;
     setup->wIndex = cdc_ncm_class->ctrl_intf;
     setup->wLength = 0;
+
+    USB_LOG_DBG("SET_ETHERNET_PACKET_FILTER 0x%04x\r\n", filter);
 
     return usbh_control_transfer(cdc_ncm_class->hport, setup, NULL);
 }
@@ -193,7 +199,10 @@ static int usbh_cdc_ncm_configure(struct usbh_cdc_ncm *cdc_ncm_class)
         host_ntb_in_size = CONFIG_USBHOST_CDC_NCM_ETH_MAX_RX_SIZE;
     }
 
-    host_ntb_in_datagrams = cdc_ncm_class->ntb_param.wNtbOutMaxDatagrams;
+    host_ntb_in_datagrams = cdc_ncm_class->ntb_param.wNtbInMaxDatagrams;
+    if (host_ntb_in_datagrams == 0) {
+        host_ntb_in_datagrams = 1;
+    }
 
     ret = usbh_cdc_ncm_set_ntb_input_size(cdc_ncm_class, host_ntb_in_size, host_ntb_in_datagrams);
     if (ret < 0) {
