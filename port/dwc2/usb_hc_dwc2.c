@@ -1273,15 +1273,31 @@ static void dwc2_inchan_irq_handler(struct usbh_bus *bus, uint8_t ch_num)
                 dwc2_urb_waitup(urb);
             }
         } else if (chan_intstatus & USB_OTG_HCINT_TXERR) {
+            USB_LOG_DBG("dwc2 txerr ch=%u ep=0x%02x len=%lu\r\n",
+                        (unsigned int)ch_num,
+                        urb->ep->bEndpointAddress,
+                        (unsigned long)urb->transfer_buffer_length);
             urb->errorcode = -USB_ERR_IO;
             dwc2_urb_waitup(urb);
         } else if (chan_intstatus & USB_OTG_HCINT_BBERR) {
+            USB_LOG_DBG("dwc2 babble ch=%u ep=0x%02x len=%lu\r\n",
+                        (unsigned int)ch_num,
+                        urb->ep->bEndpointAddress,
+                        (unsigned long)urb->transfer_buffer_length);
             urb->errorcode = -USB_ERR_BABBLE;
             dwc2_urb_waitup(urb);
         } else if (chan_intstatus & USB_OTG_HCINT_DTERR) {
+            USB_LOG_DBG("dwc2 dterr ch=%u ep=0x%02x len=%lu\r\n",
+                        (unsigned int)ch_num,
+                        urb->ep->bEndpointAddress,
+                        (unsigned long)urb->transfer_buffer_length);
             urb->errorcode = -USB_ERR_DT;
             dwc2_urb_waitup(urb);
         } else if (chan_intstatus & USB_OTG_HCINT_FRMOR) {
+            USB_LOG_DBG("dwc2 frmor ch=%u ep=0x%02x len=%lu\r\n",
+                        (unsigned int)ch_num,
+                        urb->ep->bEndpointAddress,
+                        (unsigned long)urb->transfer_buffer_length);
             urb->errorcode = -USB_ERR_IO;
             dwc2_urb_waitup(urb);
         }
@@ -1410,15 +1426,31 @@ static void dwc2_outchan_irq_handler(struct usbh_bus *bus, uint8_t ch_num)
                 dwc2_urb_waitup(urb);
             }
         } else if (chan_intstatus & USB_OTG_HCINT_TXERR) {
+            USB_LOG_DBG("dwc2 txerr ch=%u ep=0x%02x len=%lu\r\n",
+                        (unsigned int)ch_num,
+                        urb->ep->bEndpointAddress,
+                        (unsigned long)urb->transfer_buffer_length);
             urb->errorcode = -USB_ERR_IO;
             dwc2_urb_waitup(urb);
         } else if (chan_intstatus & USB_OTG_HCINT_BBERR) {
+            USB_LOG_DBG("dwc2 babble ch=%u ep=0x%02x len=%lu\r\n",
+                        (unsigned int)ch_num,
+                        urb->ep->bEndpointAddress,
+                        (unsigned long)urb->transfer_buffer_length);
             urb->errorcode = -USB_ERR_BABBLE;
             dwc2_urb_waitup(urb);
         } else if (chan_intstatus & USB_OTG_HCINT_DTERR) {
+            USB_LOG_DBG("dwc2 dterr ch=%u ep=0x%02x len=%lu\r\n",
+                        (unsigned int)ch_num,
+                        urb->ep->bEndpointAddress,
+                        (unsigned long)urb->transfer_buffer_length);
             urb->errorcode = -USB_ERR_DT;
             dwc2_urb_waitup(urb);
         } else if (chan_intstatus & USB_OTG_HCINT_FRMOR) {
+            USB_LOG_DBG("dwc2 frmor ch=%u ep=0x%02x len=%lu\r\n",
+                        (unsigned int)ch_num,
+                        urb->ep->bEndpointAddress,
+                        (unsigned long)urb->transfer_buffer_length);
             urb->errorcode = -USB_ERR_IO;
             dwc2_urb_waitup(urb);
         }
