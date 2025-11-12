@@ -538,7 +538,7 @@ find_class:
         */
         if ((g_cdc_ncm_rx_length % USB_GET_MAXPACKETSIZE(g_cdc_ncm_class.bulkin->wMaxPacketSize)) ||
             (g_cdc_ncm_class.bulkin_urb.actual_length < transfer_size)) {
-            USB_LOG_DBG("rxlen:%d\r\n", g_cdc_ncm_rx_length);
+            USB_LOG_INFO("NCM RX block length:%d\r\n", g_cdc_ncm_rx_length);
 
             struct cdc_ncm_nth16 *nth16 = (struct cdc_ncm_nth16 *)&g_cdc_ncm_rx_buffer[0];
             if ((nth16->dwSignature != CDC_NCM_NTH16_SIGNATURE) ||
@@ -558,12 +558,10 @@ find_class:
 
             uint16_t datagram_num = (ndp16->wLength - 8) / 4;
 
-            USB_LOG_DBG("datagram num:%02x\r\n", datagram_num);
+            USB_LOG_INFO("NCM datagram count:%u\r\n", datagram_num);
             for (uint16_t i = 0; i < datagram_num; i++) {
                 struct cdc_ncm_ndp16_datagram *ndp16_datagram = (struct cdc_ncm_ndp16_datagram *)&g_cdc_ncm_rx_buffer[nth16->wNdpIndex + 8 + 4 * i];
                 if (ndp16_datagram->wDatagramIndex && ndp16_datagram->wDatagramLength) {
-                    USB_LOG_DBG("ndp16_datagram index:%02x, length:%02x\r\n", ndp16_datagram->wDatagramIndex, ndp16_datagram->wDatagramLength);
-
                     uint8_t *buf = (uint8_t *)&g_cdc_ncm_rx_buffer[ndp16_datagram->wDatagramIndex];
                     usbh_cdc_ncm_eth_input(buf, ndp16_datagram->wDatagramLength);
                 }
