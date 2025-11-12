@@ -247,7 +247,7 @@ static esp_err_t usbh_cdc_ncm_transmit(void *h, void *buffer, size_t len)
     int ret;
     (void)h;
 
-    USB_LOG_INFO("CDC-NCM TX %u bytes\r\n", (unsigned int)len);
+    USB_LOG_INFO("CDC-NCM TX request %u bytes\r\n", (unsigned int)len);
     usb_memcpy(usbh_cdc_ncm_get_eth_txbuf(), buffer, len);
     ret = usbh_cdc_ncm_eth_output(len);
     if (ret < 0) {
