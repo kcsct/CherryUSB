@@ -14,6 +14,21 @@
 #include "usbh_core.h"
 #include "usb_dwc2_param.h"
 
+#ifdef CONFIG_USBHOST
+static struct dwc2_user_params esp32_host_params;
+
+void dwc2_get_user_params(uint32_t reg_base, struct dwc2_user_params *params)
+{
+    (void)reg_base;
+    memcpy(params, &param_fs, sizeof(struct dwc2_user_params));
+    /* Tune host FIFO sizes for CDC-NCM traffic on ESP32-S3 */
+    params->host_rx_fifo_size = 128;
+    params->host_nperio_tx_fifo_size = 72;
+    params->host_perio_tx_fifo_size = 0;
+    esp32_host_params = *params;
+}
+#endif
+
 #define  GET_USB_INDEX(reg_base)    0
 #define GET_USB_INTR_SOURCE(reg_base)   ETS_USB_INTR_SOURCE
 #define GET_USB_PHY_TARGET(reg_base)    USB_PHY_TARGET_INT
