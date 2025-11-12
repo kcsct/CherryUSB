@@ -39,6 +39,11 @@ struct cdc_ncm_ntb_input_size_cmd {
     uint16_t wReserved;
 } __PACKED;
 
+struct cdc_ncm_max_datagram_cmd {
+    uint16_t wMaxDatagramSize;
+    uint16_t wReserved;
+} __PACKED;
+
 static USB_NOCACHE_RAM_SECTION USB_MEM_ALIGNX uint8_t g_cdc_ncm_rx_buffer[CONFIG_USBHOST_CDC_NCM_ETH_MAX_RX_SIZE];
 static USB_NOCACHE_RAM_SECTION USB_MEM_ALIGNX uint8_t g_cdc_ncm_tx_buffer[CONFIG_USBHOST_CDC_NCM_ETH_MAX_TX_SIZE];
 static USB_NOCACHE_RAM_SECTION USB_MEM_ALIGNX uint8_t g_cdc_ncm_inttx_buffer[USB_ALIGN_UP(16, CONFIG_USB_ALIGN_SIZE)];
@@ -183,6 +188,53 @@ static int usbh_cdc_ncm_set_crc_mode(struct usbh_cdc_ncm *cdc_ncm_class, uint16_
     return usbh_control_transfer(cdc_ncm_class->hport, setup, NULL);
 }
 
+static int usbh_cdc_ncm_set_ntb_input_size(struct usbh_cdc_ncm *cdc_ncm_class, uint32_t max_size, uint16_t max_datagrams)
+{
+    struct usb_setup_packet *setup;
+    struct cdc_ncm_ntb_input_size_cmd cmd;
+
+    if (!cdc_ncm_class || !cdc_ncm_class->hport) {
+        return -USB_ERR_INVAL;
+    }
+
+    cmd.dwNtbInMaxSize = max_size;
+    cmd.wNtbInMaxDatagrams = max_datagrams;
+    cmd.wReserved = 0;
+
+    setup = cdc_ncm_class->hport->setup;
+    setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
+    setup->bRequest = CDC_REQUEST_SET_NTB_INPUT_SIZE;
+    setup->wValue = 0;
+    setup->wIndex = cdc_ncm_class->data_intf;
+    setup->wLength = sizeof(cmd);
+
+    USB_LOG_DBG("SET_NTB_INPUT_SIZE size=%u datagrams=%u\r\n", (unsigned int)max_size, (unsigned int)max_datagrams);
+    return usbh_control_transfer(cdc_ncm_class->hport, setup, (uint8_t *)&cmd);
+}
+
+static int usbh_cdc_ncm_set_max_datagram_size(struct usbh_cdc_ncm *cdc_ncm_class, uint16_t size)
+{
+    struct usb_setup_packet *setup;
+    struct cdc_ncm_max_datagram_cmd cmd;
+
+    if (!cdc_ncm_class || !cdc_ncm_class->hport) {
+        return -USB_ERR_INVAL;
+    }
+
+    cmd.wMaxDatagramSize = size;
+    cmd.wReserved = 0;
+
+    setup = cdc_ncm_class->hport->setup;
+    setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
+    setup->bRequest = CDC_REQUEST_SET_MAX_DATAGRAM_SIZE;
+    setup->wValue = 0;
+    setup->wIndex = cdc_ncm_class->data_intf;
+    setup->wLength = sizeof(cmd);
+
+    USB_LOG_DBG("SET_MAX_DATAGRAM_SIZE %u\r\n", (unsigned int)size);
+    return usbh_control_transfer(cdc_ncm_class->hport, setup, (uint8_t *)&cmd);
+}
+
 static int usbh_cdc_ncm_clear_halt(struct usbh_cdc_ncm *cdc_ncm_class, struct usb_endpoint_descriptor *ep)
 {
     struct usb_setup_packet *setup;
@@ -218,9 +270,24 @@ static int usbh_cdc_ncm_configure(struct usbh_cdc_ncm *cdc_ncm_class)
         host_max_datagram = CONFIG_USBHOST_CDC_NCM_ETH_MAX_SEGSZE;
     }
 
+    uint16_t host_max_datagram_count = cdc_ncm_class->ntb_param.wNtbOutMaxDatagrams;
+    if (host_max_datagram_count == 0) {
+        host_max_datagram_count = 1;
+    }
+
     ret = usbh_cdc_ncm_set_control_line_state(cdc_ncm_class, true);
     if (ret < 0) {
         USB_LOG_WRN("Failed to assert control line state, ret:%d\r\n", ret);
+    }
+
+    ret = usbh_cdc_ncm_set_ntb_input_size(cdc_ncm_class, host_ntb_in_size, host_max_datagram_count);
+    if (ret < 0 && ret != -USB_ERR_STALL) {
+        USB_LOG_WRN("Failed to set NTB input size, ret:%d\r\n", ret);
+    }
+
+    ret = usbh_cdc_ncm_set_max_datagram_size(cdc_ncm_class, host_max_datagram);
+    if (ret < 0 && ret != -USB_ERR_STALL) {
+        USB_LOG_WRN("Failed to set max datagram size, ret:%d\r\n", ret);
     }
 
     ret = usbh_cdc_ncm_set_crc_mode(cdc_ncm_class, CDC_NCM_CRC_MODE_CRC16);
@@ -470,7 +537,7 @@ find_class:
         usbh_bulk_urb_fill(&g_cdc_ncm_class.bulkin_urb, g_cdc_ncm_class.hport, g_cdc_ncm_class.bulkin, &g_cdc_ncm_rx_buffer[g_cdc_ncm_rx_length], transfer_size, USB_OSAL_WAITING_FOREVER, NULL, NULL);
         ret = usbh_submit_urb(&g_cdc_ncm_class.bulkin_urb);
         if (ret < 0) {
-            if (ret == -USB_ERR_STALL) {
+            if (ret == -USB_ERR_STALL || ret == -USB_ERR_BABBLE) {
                 USB_LOG_WRN("bulk IN stalled, clearing halt\r\n");
                 if (usbh_cdc_ncm_clear_halt(&g_cdc_ncm_class, g_cdc_ncm_class.bulkin) < 0) {
                     USB_LOG_ERR("Failed to clear bulk IN halt\r\n");
