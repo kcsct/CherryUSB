@@ -139,6 +139,8 @@ static int usbh_cdc_ncm_set_ntb_input_size(struct usbh_cdc_ncm *cdc_ncm_class, u
         }
 
         cmd->wNtbInMaxDatagrams = requested_datagrams;
+        USB_LOG_DBG(" -> iface=%u\r\n", iface_candidates[i]);
+        usb_hexdump(cmd, sizeof(*cmd));
         ret = usbh_control_transfer(cdc_ncm_class->hport, setup, (uint8_t *)cmd);
         if (ret == 0) {
             goto success;
