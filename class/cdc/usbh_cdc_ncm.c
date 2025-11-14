@@ -188,53 +188,6 @@ static int usbh_cdc_ncm_set_crc_mode(struct usbh_cdc_ncm *cdc_ncm_class, uint16_
     return usbh_control_transfer(cdc_ncm_class->hport, setup, NULL);
 }
 
-static int usbh_cdc_ncm_set_ntb_input_size(struct usbh_cdc_ncm *cdc_ncm_class, uint32_t max_size, uint16_t max_datagrams)
-{
-    struct usb_setup_packet *setup;
-    struct cdc_ncm_ntb_input_size_cmd cmd;
-
-    if (!cdc_ncm_class || !cdc_ncm_class->hport) {
-        return -USB_ERR_INVAL;
-    }
-
-    cmd.dwNtbInMaxSize = max_size;
-    cmd.wNtbInMaxDatagrams = max_datagrams;
-    cmd.wReserved = 0;
-
-    setup = cdc_ncm_class->hport->setup;
-    setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
-    setup->bRequest = CDC_REQUEST_SET_NTB_INPUT_SIZE;
-    setup->wValue = 0;
-    setup->wIndex = cdc_ncm_class->ctrl_intf;
-    setup->wLength = sizeof(cmd);
-
-    USB_LOG_DBG("SET_NTB_INPUT_SIZE size=%u datagrams=%u\r\n", (unsigned int)max_size, (unsigned int)max_datagrams);
-    return usbh_control_transfer(cdc_ncm_class->hport, setup, (uint8_t *)&cmd);
-}
-
-static int usbh_cdc_ncm_set_max_datagram_size(struct usbh_cdc_ncm *cdc_ncm_class, uint16_t size)
-{
-    struct usb_setup_packet *setup;
-    struct cdc_ncm_max_datagram_cmd cmd;
-
-    if (!cdc_ncm_class || !cdc_ncm_class->hport) {
-        return -USB_ERR_INVAL;
-    }
-
-    cmd.wMaxDatagramSize = size;
-    cmd.wReserved = 0;
-
-    setup = cdc_ncm_class->hport->setup;
-    setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_CLASS | USB_REQUEST_RECIPIENT_INTERFACE;
-    setup->bRequest = CDC_REQUEST_SET_MAX_DATAGRAM_SIZE;
-    setup->wValue = 0;
-    setup->wIndex = cdc_ncm_class->ctrl_intf;
-    setup->wLength = sizeof(cmd);
-
-    USB_LOG_DBG("SET_MAX_DATAGRAM_SIZE %u\r\n", (unsigned int)size);
-    return usbh_control_transfer(cdc_ncm_class->hport, setup, (uint8_t *)&cmd);
-}
-
 static int usbh_cdc_ncm_configure(struct usbh_cdc_ncm *cdc_ncm_class)
 {
     int ret;
@@ -251,25 +204,10 @@ static int usbh_cdc_ncm_configure(struct usbh_cdc_ncm *cdc_ncm_class)
         host_max_datagram = CONFIG_USBHOST_CDC_NCM_ETH_MAX_SEGSZE;
     }
 
-    uint16_t host_max_datagram_count = cdc_ncm_class->ntb_param.wNtbOutMaxDatagrams;
-    if (host_max_datagram_count == 0) {
-        host_max_datagram_count = 1;
-    }
-
-    ret = usbh_cdc_ncm_set_control_line_state(cdc_ncm_class, true);
-    if (ret < 0) {
-        USB_LOG_WRN("Failed to assert control line state, ret:%d\r\n", ret);
-    }
-
-    ret = usbh_cdc_ncm_set_ntb_input_size(cdc_ncm_class, host_ntb_in_size, host_max_datagram_count);
-    if (ret < 0 && ret != -USB_ERR_STALL && ret != -USB_ERR_IO) {
-        USB_LOG_WRN("Failed to set NTB input size, ret:%d\r\n", ret);
-    }
-
-    ret = usbh_cdc_ncm_set_max_datagram_size(cdc_ncm_class, host_max_datagram);
-    if (ret < 0 && ret != -USB_ERR_STALL && ret != -USB_ERR_IO) {
-        USB_LOG_WRN("Failed to set max datagram size, ret:%d\r\n", ret);
-    }
+    /* Linux only programs CRC/format before enabling traffic. Skip optional
+     * setters to mimic the gadget-friendly sequence unless a device explicitly
+     * requires them.
+     */
 
     ret = usbh_cdc_ncm_set_crc_mode(cdc_ncm_class, CDC_NCM_CRC_MODE_CRC16);
     if (ret < 0 && ret != -USB_ERR_STALL && ret != -USB_ERR_IO) {
@@ -433,17 +371,6 @@ get_mac:
         ret = usbh_set_interface(cdc_ncm_class->hport, cdc_ncm_class->data_intf, altsetting);
         if (ret < 0) {
             USB_LOG_WRN("Failed to set altsetting %u, ret=%d\r\n", (unsigned int)altsetting, ret);
-        } else if (altsetting > 0) {
-            USB_LOG_INFO("Toggle cdc ncm altsetting 0 -> %u\r\n", (unsigned int)altsetting);
-            ret = usbh_set_interface(cdc_ncm_class->hport, cdc_ncm_class->data_intf, 0);
-            if (ret < 0) {
-                USB_LOG_WRN("Failed to set altsetting 0, ret=%d\r\n", ret);
-            }
-            usb_osal_msleep(10);
-            ret = usbh_set_interface(cdc_ncm_class->hport, cdc_ncm_class->data_intf, altsetting);
-            if (ret < 0) {
-                USB_LOG_WRN("Failed to restore altsetting %u, ret=%d\r\n", (unsigned int)altsetting, ret);
-            }
         }
     } else {
         for (uint8_t i = 0; i < hport->config.intf[intf + 1].altsetting[0].intf_desc.bNumEndpoints; i++) {
