@@ -480,6 +480,9 @@ find_class:
 
     g_cdc_ncm_rx_length = 0;
     while (1) {
+        /* Linux-style: submit URB immediately, process on completion, then submit next immediately.
+         * This minimizes gaps where the host isn't ready to receive data.
+         */
         usbh_bulk_urb_fill(&g_cdc_ncm_class.bulkin_urb, g_cdc_ncm_class.hport, g_cdc_ncm_class.bulkin, &g_cdc_ncm_rx_buffer[g_cdc_ncm_rx_length], transfer_size, USB_OSAL_WAITING_FOREVER, NULL, NULL);
         ret = usbh_submit_urb(&g_cdc_ncm_class.bulkin_urb);
         if (ret < 0) {
