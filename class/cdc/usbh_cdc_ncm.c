@@ -441,13 +441,17 @@ find_class:
         goto delete;
     }
 
+    /* Wait for CDC-NCM notification before starting bulk IN transfers.
+     * Linux waits for CONNECTION_SPEED_CHANGE/NETWORK_CONNECTION notifications.
+     * Poll for up to 2 seconds to receive the notification.
+     */
     uint32_t connect_poll_attempts = 0;
     while (g_cdc_ncm_class.connect_status == false) {
         ret = usbh_cdc_ncm_get_connect_status(&g_cdc_ncm_class);
         if (ret < 0) {
             connect_poll_attempts++;
-            if (connect_poll_attempts >= 5) {
-                USB_LOG_WRN("No connect notification received, assuming link up\r\n");
+            if (connect_poll_attempts >= 20) {  /* 20 * 100ms = 2 seconds */
+                USB_LOG_WRN("No connect notification received after 2s, assuming link up\r\n");
                 g_cdc_ncm_class.connect_status = true;
                 break;
             }
@@ -457,11 +461,8 @@ find_class:
         connect_poll_attempts = 0;
     }
 
-    /* Wait a bit after configuration before starting bulk IN to let gadget settle.
-     * Linux typically waits for CONNECTION_SPEED_CHANGE/NETWORK_CONNECTION notifications
-     * before starting bulk transfers.
-     */
-    usb_osal_msleep(100);
+    /* Additional delay after receiving notification to let gadget fully settle */
+    usb_osal_msleep(200);
 
     g_cdc_ncm_rx_length = 0;
     while (1) {
