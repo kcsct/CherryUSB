@@ -421,14 +421,16 @@ void usbh_cdc_ncm_rx_thread(CONFIG_USB_OSAL_THREAD_SET_ARGV)
     uint32_t g_cdc_ncm_rx_length;
     int ret;
     /* Reduce transfer size to avoid DWC2 FIFO overflow on ESP32-S3.
-     * With 180-word RX FIFO (720 bytes), request 256-byte chunks to leave
-     * headroom for packet overhead and ensure reliable reception.
+     * Use endpoint max packet size (64 bytes) to minimize FIFO pressure.
+     * The NTB parsing code handles multi-packet transfers correctly.
      */
-#if CONFIG_USBHOST_CDC_NCM_ETH_MAX_RX_SIZE <= (16 * 1024)
-    uint32_t transfer_size = MIN(CONFIG_USBHOST_CDC_NCM_ETH_MAX_RX_SIZE, 256);
-#else
-    uint32_t transfer_size = 256;
-#endif
+    uint32_t transfer_size = 64; /* Default to max packet size */
+    if (g_cdc_ncm_class.bulkin) {
+        transfer_size = USB_GET_MAXPACKETSIZE(g_cdc_ncm_class.bulkin->wMaxPacketSize);
+        if (transfer_size == 0) {
+            transfer_size = 64; /* Fallback */
+        }
+    }
 
     (void)CONFIG_USB_OSAL_THREAD_GET_ARGV;
     USB_LOG_INFO("Create cdc ncm rx thread\r\n");
