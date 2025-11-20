@@ -471,7 +471,8 @@ find_class:
             USB_LOG_DBG("bulk IN submit error ret=%d\r\n", ret);
             if (ret == -USB_ERR_IO || ret == -USB_ERR_STALL || ret == -USB_ERR_BABBLE) {
                 USB_LOG_DBG("bulk IN stalled/empty (ret=%d), retrying\r\n", ret);
-                usb_osal_msleep(20);
+                /* Increase delay for babble errors - may indicate FIFO overflow or endpoint state issue */
+                usb_osal_msleep(ret == -USB_ERR_BABBLE ? 100 : 20);
                 g_cdc_ncm_rx_length = 0;
                 continue;
             }
