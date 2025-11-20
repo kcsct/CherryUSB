@@ -240,11 +240,12 @@ void dwc2_get_user_params(uint32_t reg_base, struct dwc2_user_params *params)
 #if CONFIG_CHERRYUSB_HOST_CDC_NCM
     /* Tune host FIFO sizes for CDC-NCM traffic on ESP32-S3.
      * RX FIFO needs to be large enough for 512-byte bulk IN transfers.
-     * Total FIFO budget is 200 words, so maximize RX and minimize TX.
+     * Total FIFO budget is 200 words. Use conservative allocation to avoid
+     * enumeration issues: 180 words RX leaves room for TX FIFOs.
      */
-    params->host_rx_fifo_size = 192;  /* 768 bytes - enough for 512-byte transfers */
-    params->host_nperio_tx_fifo_size = 8;  /* 32 bytes - minimal for control */
-    params->host_perio_tx_fifo_size = 0;   /* No periodic transfers */
+    params->host_rx_fifo_size = 180;  /* 720 bytes - should handle 512-byte transfers */
+    params->host_nperio_tx_fifo_size = 16;  /* 64 bytes - for control/bulk OUT */
+    params->host_perio_tx_fifo_size = 4;   /* 16 bytes - minimal for interrupts */
     USB_LOG_INFO("ESP32 DWC2 host fifo: rx=%u np_tx=%u p_tx=%u\r\n",
                  (unsigned int)params->host_rx_fifo_size,
                  (unsigned int)params->host_nperio_tx_fifo_size,
