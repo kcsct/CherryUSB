@@ -486,6 +486,19 @@ find_class:
             USB_LOG_DBG("bulk IN submit error ret=%d\r\n", ret);
             if (ret == -USB_ERR_IO || ret == -USB_ERR_STALL || ret == -USB_ERR_BABBLE) {
                 USB_LOG_DBG("bulk IN stalled/empty (ret=%d), retrying\r\n", ret);
+                /* Clear endpoint halt after babble/stall errors - endpoint may be halted */
+                if (ret == -USB_ERR_BABBLE || ret == -USB_ERR_STALL) {
+                    struct usb_setup_packet setup;
+                    setup.bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_STANDARD | USB_REQUEST_RECIPIENT_ENDPOINT;
+                    setup.bRequest = USB_REQUEST_CLEAR_FEATURE;
+                    setup.wValue = USB_FEATURE_ENDPOINT_HALT;
+                    setup.wIndex = g_cdc_ncm_class.bulkin->bEndpointAddress;
+                    setup.wLength = 0;
+                    int clear_ret = usbh_control_transfer(g_cdc_ncm_class.hport, &setup, NULL);
+                    if (clear_ret < 0 && clear_ret != -USB_ERR_STALL && clear_ret != -USB_ERR_IO) {
+                        USB_LOG_DBG("Failed to clear bulk IN endpoint halt after error, ret=%d\r\n", clear_ret);
+                    }
+                }
                 /* Increase delay for babble errors - may indicate FIFO overflow or endpoint state issue */
                 usb_osal_msleep(ret == -USB_ERR_BABBLE ? 100 : 20);
                 g_cdc_ncm_rx_length = 0;
