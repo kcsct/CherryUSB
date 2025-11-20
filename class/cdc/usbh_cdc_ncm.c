@@ -457,6 +457,12 @@ find_class:
         connect_poll_attempts = 0;
     }
 
+    /* Wait a bit after configuration before starting bulk IN to let gadget settle.
+     * Linux typically waits for CONNECTION_SPEED_CHANGE/NETWORK_CONNECTION notifications
+     * before starting bulk transfers.
+     */
+    usb_osal_msleep(100);
+
     g_cdc_ncm_rx_length = 0;
     while (1) {
         usbh_bulk_urb_fill(&g_cdc_ncm_class.bulkin_urb, g_cdc_ncm_class.hport, g_cdc_ncm_class.bulkin, &g_cdc_ncm_rx_buffer[g_cdc_ncm_rx_length], transfer_size, USB_OSAL_WAITING_FOREVER, NULL, NULL);
