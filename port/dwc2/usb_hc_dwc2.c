@@ -784,7 +784,11 @@ int usb_hc_init(struct usbh_bus *bus)
     ret = dwc2_flush_rxfifo(bus);
 
     USB_OTG_GLB->GAHBCFG &= ~USB_OTG_GAHBCFG_HBSTLEN;
-    USB_OTG_GLB->GAHBCFG |= USB_OTG_GAHBCFG_HBSTLEN_4;
+    /* Use INCR (HBSTLEN_1) instead of INCR16 to ensure exclusive AHB bus access.
+     * ESP32-S2 errata suggests this for USB OTG when competing with other peripherals.
+     * May help with babble errors on ESP32-S3 as well.
+     */
+    USB_OTG_GLB->GAHBCFG |= USB_OTG_GAHBCFG_HBSTLEN_1;
     USB_OTG_GLB->GAHBCFG |= USB_OTG_GAHBCFG_DMAEN;
 
     /* Enable interrupts matching to the Host mode ONLY */
