@@ -219,6 +219,16 @@ static int usbh_cdc_ncm_configure(struct usbh_cdc_ncm *cdc_ncm_class)
         USB_LOG_WRN("Failed to set NTB format, ret:%d\r\n", ret);
     }
 
+    /* Linux sets altsetting back to 1 after SET_NTB_FORMAT (with ~21ms delay) */
+    if (cdc_ncm_class->hport->config.intf[cdc_ncm_class->data_intf].altsetting_num > 1) {
+        uint8_t altsetting = cdc_ncm_class->hport->config.intf[cdc_ncm_class->data_intf].altsetting_num - 1;
+        usb_osal_msleep(21); /* Match Linux's delay */
+        ret = usbh_set_interface(cdc_ncm_class->hport, cdc_ncm_class->data_intf, altsetting);
+        if (ret < 0) {
+            USB_LOG_WRN("Failed to restore altsetting %u after SET_NTB_FORMAT, ret=%d\r\n", (unsigned int)altsetting, ret);
+        }
+    }
+
     ret = usbh_cdc_ncm_set_packet_filter(cdc_ncm_class, CDC_NCM_PACKET_FILTER_DEFAULT);
     for (int i = 0; ret < 0 && i < 1; i++) {
         usb_osal_msleep(10);
@@ -347,16 +357,17 @@ get_mac:
         USB_LOG_INFO("CDC NCM Max Segment Size:%u\r\n", cdc_ncm_class->max_segment_size);
     }
 
-    usbh_cdc_ncm_get_ntb_parameters(cdc_ncm_class, &cdc_ncm_class->ntb_param);
-    print_ntb_parameters(&cdc_ncm_class->ntb_param);
-
     /* enable int ep */
     ep_desc = &hport->config.intf[intf].altsetting[0].ep[0].ep_desc;
     USBH_EP_INIT(cdc_ncm_class->intin, ep_desc);
 
+    /* Linux does altsetting toggle (1->0->1) before GET_NTB_PARAMETERS,
+     * then sets it back to 1 after SET_NTB_FORMAT. Match this sequence.
+     */
     if (hport->config.intf[intf + 1].altsetting_num > 1) {
         altsetting = hport->config.intf[intf + 1].altsetting_num - 1;
 
+        /* Initialize endpoints from altsetting 1 */
         for (uint8_t i = 0; i < hport->config.intf[intf + 1].altsetting[altsetting].intf_desc.bNumEndpoints; i++) {
             ep_desc = &hport->config.intf[intf + 1].altsetting[altsetting].ep[i].ep_desc;
 
@@ -367,10 +378,15 @@ get_mac:
             }
         }
 
+        /* Linux sequence: SET_INTERFACE(1, alt=1) -> SET_INTERFACE(1, alt=0) -> GET_NTB_PARAMETERS */
         USB_LOG_INFO("Select cdc ncm altsetting: %d\r\n", altsetting);
         ret = usbh_set_interface(cdc_ncm_class->hport, cdc_ncm_class->data_intf, altsetting);
         if (ret < 0) {
             USB_LOG_WRN("Failed to set altsetting %u, ret=%d\r\n", (unsigned int)altsetting, ret);
+        }
+        ret = usbh_set_interface(cdc_ncm_class->hport, cdc_ncm_class->data_intf, 0);
+        if (ret < 0) {
+            USB_LOG_WRN("Failed to set altsetting 0, ret=%d\r\n", ret);
         }
     } else {
         for (uint8_t i = 0; i < hport->config.intf[intf + 1].altsetting[0].intf_desc.bNumEndpoints; i++) {
@@ -383,6 +399,10 @@ get_mac:
             }
         }
     }
+
+    /* Get NTB parameters while altsetting is 0 (Linux does this) */
+    usbh_cdc_ncm_get_ntb_parameters(cdc_ncm_class, &cdc_ncm_class->ntb_param);
+    print_ntb_parameters(&cdc_ncm_class->ntb_param);
 
     ret = usbh_cdc_ncm_configure(cdc_ncm_class);
     if (ret < 0) {
