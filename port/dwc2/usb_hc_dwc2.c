@@ -774,6 +774,11 @@ int usb_hc_init(struct usbh_bus *bus)
                                                  g_dwc2_hcd[bus->hcd.hcd_id].user_params.host_rx_fifo_size);
     USB_OTG_GLB->HPTXFSIZ = (uint32_t)(((g_dwc2_hcd[bus->hcd.hcd_id].user_params.host_perio_tx_fifo_size << 16) & USB_OTG_HPTXFSIZ_PTXFD) |
                                        (g_dwc2_hcd[bus->hcd.hcd_id].user_params.host_rx_fifo_size + g_dwc2_hcd[bus->hcd.hcd_id].user_params.host_nperio_tx_fifo_size));
+    USB_LOG_INFO("DWC2 FIFO configured: GRXFSIZ=0x%04x (rx=%u words), DIEPTXF0_HNPTXFSIZ=0x%08x, HPTXFSIZ=0x%08x\r\n",
+                 (unsigned int)USB_OTG_GLB->GRXFSIZ,
+                 (unsigned int)g_dwc2_hcd[bus->hcd.hcd_id].user_params.host_rx_fifo_size,
+                 (unsigned int)USB_OTG_GLB->DIEPTXF0_HNPTXFSIZ,
+                 (unsigned int)USB_OTG_GLB->HPTXFSIZ);
 
     ret = dwc2_flush_txfifo(bus, 0x10U);
     ret = dwc2_flush_rxfifo(bus);
