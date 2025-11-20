@@ -464,6 +464,20 @@ find_class:
     /* Additional delay after receiving notification to let gadget fully settle */
     usb_osal_msleep(200);
 
+    /* Clear endpoint halt before starting bulk IN to ensure clean state.
+     * This may help if the endpoint is in a bad state from previous attempts.
+     */
+    struct usb_setup_packet setup;
+    setup.bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_STANDARD | USB_REQUEST_RECIPIENT_ENDPOINT;
+    setup.bRequest = USB_REQUEST_CLEAR_FEATURE;
+    setup.wValue = USB_FEATURE_ENDPOINT_HALT;
+    setup.wIndex = g_cdc_ncm_class.bulkin->bEndpointAddress;
+    setup.wLength = 0;
+    ret = usbh_control_transfer(g_cdc_ncm_class.hport, &setup, NULL);
+    if (ret < 0 && ret != -USB_ERR_STALL && ret != -USB_ERR_IO) {
+        USB_LOG_DBG("Failed to clear bulk IN endpoint halt, ret=%d\r\n", ret);
+    }
+
     g_cdc_ncm_rx_length = 0;
     while (1) {
         usbh_bulk_urb_fill(&g_cdc_ncm_class.bulkin_urb, g_cdc_ncm_class.hport, g_cdc_ncm_class.bulkin, &g_cdc_ncm_rx_buffer[g_cdc_ncm_rx_length], transfer_size, USB_OSAL_WAITING_FOREVER, NULL, NULL);
